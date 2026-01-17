@@ -1,0 +1,51 @@
+name: Daily Snapshot
+
+# Runs every day at midnight UTC
+on:
+  schedule:
+    - cron: '0 0 * * *'  # Every day at 00:00 UTC
+  workflow_dispatch:  # Allow manual trigger
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history for accurate diffs
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Create daily snapshot
+        run: |
+          DATE=$(date +'%Y-%m-%d')
+          
+          # Check if there are any changes since last commit
+          if [ -n "$(git status --porcelain)" ]; then
+            echo "Changes detected, creating snapshot..."
+            git add -A
+            git commit -m "📸 Daily snapshot: $DATE" -m "Automated daily backup of project state"
+            git push
+          else
+            echo "No changes detected, skipping snapshot."
+          fi
+
+      - name: Create daily tag
+        run: |
+          DATE=$(date +'%Y-%m-%d')
+          TAG_NAME="snapshot-$DATE"
+          
+          # Check if tag already exists
+          if ! git rev-parse "$TAG_NAME" >/dev/null 2>&1; then
+            echo "Creating tag $TAG_NAME..."
+            git tag -a "$TAG_NAME" -m "Daily snapshot for $DATE"
+            git push origin "$TAG_NAME"
+          else
+            echo "Tag $TAG_NAME already exists, skipping."
+          fi
