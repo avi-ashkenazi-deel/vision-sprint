@@ -7,33 +7,29 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "db:generate": "prisma generate",
-    "db:push": "prisma db push",
-    "db:migrate": "prisma migrate dev",
-    "db:seed": "ts-node --compiler-options {\"module\":\"CommonJS\"} prisma/seed.ts",
-    "db:studio": "prisma studio",
-    "db:reset": "prisma migrate reset"
-  },
-  "prisma": {
-    "seed": "ts-node --compiler-options {\"module\":\"CommonJS\"} prisma/seed.ts"
+    "db:sync": "ts-node --compiler-options '{\"module\":\"CommonJS\",\"esModuleInterop\":true}' scripts/sync-db.ts",
+    "db:seed": "ts-node --compiler-options '{\"module\":\"CommonJS\",\"esModuleInterop\":true}' scripts/seed.ts",
+    "db:reset": "ts-node --compiler-options '{\"module\":\"CommonJS\",\"esModuleInterop\":true}' scripts/reset-db.ts"
   },
   "dependencies": {
-    "@auth/prisma-adapter": "^2.11.1",
-    "@prisma/client": "^5.22.0",
     "canvas-confetti": "^1.9.4",
     "clsx": "^2.1.1",
     "dotenv": "^16.5.0",
     "framer-motion": "^12.26.2",
     "next": "16.1.3",
     "next-auth": "^4.24.13",
-    "prisma": "^5.22.0",
+    "pg": "^8.18.0",
+    "pg-hstore": "^2.3.4",
     "react": "19.2.3",
     "react-dom": "19.2.3",
+    "react-markdown": "^10.1.0",
     "react-player": "^3.4.0",
+    "sequelize": "^6.37.7",
     "tailwind-merge": "^3.4.0"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
+    "@tailwindcss/typography": "^0.5.19",
     "@types/canvas-confetti": "^1.9.0",
     "@types/node": "^20",
     "@types/react": "^19",

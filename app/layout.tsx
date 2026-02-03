@@ -14,8 +14,8 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en">
-      <body className="antialiased bg-gradient-mesh min-h-screen">
+    <html lang="en" className="dark" style={{ colorScheme: 'dark' }}>
+      <body className="antialiased bg-gradient-mesh min-h-screen bg-[#0a0b0f]">
         <Providers>
           <Navigation />
           <main className="pt-20">{children}</main>

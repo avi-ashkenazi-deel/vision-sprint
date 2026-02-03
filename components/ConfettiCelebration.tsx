@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import confetti from 'canvas-confetti'
 
 interface ConfettiCelebrationProps {
@@ -9,6 +9,7 @@ interface ConfettiCelebrationProps {
 
 export function ConfettiCelebration({ onComplete }: ConfettiCelebrationProps) {
   const hasRun = useRef(false)
+  const [showButton, setShowButton] = useState(false)
 
   useEffect(() => {
     if (hasRun.current) return
@@ -55,13 +56,13 @@ export function ConfettiCelebration({ onComplete }: ConfettiCelebrationProps) {
       })
     }, 500)
 
-    // Cleanup timeout
-    const timeout = setTimeout(() => {
-      onComplete?.()
-    }, duration + 1000)
+    // Show button after confetti settles
+    setTimeout(() => {
+      setShowButton(true)
+    }, 2000)
 
-    return () => clearTimeout(timeout)
-  }, [onComplete])
+    return () => {}
+  }, [])
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
@@ -70,12 +71,21 @@ export function ConfettiCelebration({ onComplete }: ConfettiCelebrationProps) {
         <h1 className="text-4xl font-bold text-white mb-4">
           Well Done!
         </h1>
-        <p className="text-xl text-gray-300 mb-8">
+        <p className="text-xl text-gray-300 mb-4">
           You&apos;ve watched all the project videos!
         </p>
-        <p className="text-gray-400">
+        <p className="text-gray-400 mb-8">
           Thank you for supporting your colleagues&apos; amazing work
         </p>
+        
+        {showButton && (
+          <button
+            onClick={onComplete}
+            className="px-6 py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white font-medium rounded-xl hover:from-purple-600 hover:to-pink-600 transition-all shadow-lg shadow-purple-500/30 animate-fadeIn"
+          >
+            🏠 Back to Showcase
+          </button>
+        )}
       </div>
     </div>
   )

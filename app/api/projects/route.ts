@@ -1,71 +1,99 @@
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import { prisma } from '@/lib/prisma'
+import { Project, User, Vote, Team, TeamMember, Submission, Vision, ProjectJoin, AppState } from '@/models'
 
 // GET all projects
 export async function GET() {
   try {
     const session = await getServerSession(authOptions)
 
-    const projects = await prisma.project.findMany({
-      include: {
-        creator: {
-          select: {
-            id: true,
-            name: true,
-            image: true,
-          },
+    const projects = await Project.findAll({
+      include: [
+        {
+          model: User,
+          as: 'creator',
+          attributes: ['id', 'name', 'image'],
         },
-        votes: {
-          include: {
-            user: {
-              select: {
-                id: true,
-                name: true,
-                image: true,
-              },
+        {
+          model: Vision,
+          as: 'vision',
+          attributes: ['id', 'title', 'area'],
+        },
+        {
+          model: Vote,
+          as: 'votes',
+          include: [
+            {
+              model: User,
+              as: 'user',
+              attributes: ['id', 'name', 'image'],
             },
-          },
+          ],
         },
-        teams: {
-          include: {
-            members: {
-              include: {
-                user: {
-                  select: {
-                    id: true,
-                    name: true,
-                    image: true,
-                  },
+        {
+          model: ProjectJoin,
+          as: 'joins',
+          include: [
+            {
+              model: User,
+              as: 'user',
+              attributes: ['id', 'name', 'image'],
+            },
+          ],
+        },
+        {
+          model: Team,
+          as: 'teams',
+          include: [
+            {
+              model: TeamMember,
+              as: 'members',
+              include: [
+                {
+                  model: User,
+                  as: 'user',
+                  attributes: ['id', 'name', 'image'],
                 },
-              },
+              ],
             },
-            submission: true,
-          },
+            {
+              model: Submission,
+              as: 'submission',
+            },
+          ],
         },
-        _count: {
-          select: {
-            votes: true,
-            reactions: true,
-          },
-        },
-      },
-      orderBy: [
-        { votes: { _count: 'desc' } },
-        { createdAt: 'desc' },
       ],
+      order: [['createdAt', 'DESC']],
     })
 
-    // Add hasVoted flag for current user
-    const projectsWithVoteStatus = projects.map((project) => ({
-      ...project,
-      hasVoted: session?.user?.id
-        ? project.votes.some((vote) => vote.userId === session.user.id)
-        : false,
-    }))
+    // Transform to match expected format
+    const projectsWithStatus = projects.map((project) => {
+      const projectData = project.toJSON() as typeof project & {
+        votes: { userId: string; user: { id: string; name: string; image: string } }[]
+        joins: { userId: string; user: { id: string; name: string; image: string } }[]
+        reactions: unknown[]
+      }
+      return {
+        ...projectData,
+        _count: {
+          votes: projectData.votes?.length || 0,
+          reactions: 0, // Will be fetched separately if needed
+          joins: projectData.joins?.length || 0,
+        },
+        hasVoted: session?.user?.id
+          ? projectData.votes?.some((vote) => vote.userId === session.user.id)
+          : false,
+        hasJoined: session?.user?.id
+          ? projectData.joins?.some((join) => join.userId === session.user.id)
+          : false,
+      }
+    })
 
-    return NextResponse.json(projectsWithVoteStatus)
+    // Sort by vote count
+    projectsWithStatus.sort((a, b) => b._count.votes - a._count.votes)
+
+    return NextResponse.json(projectsWithStatus)
   } catch (error) {
     console.error('Error fetching projects:', error)
     return NextResponse.json({ error: 'Failed to fetch projects' }, { status: 500 })
@@ -82,9 +110,7 @@ export async function POST(request: Request) {
     }
 
     // Check app state
-    const appState = await prisma.appState.findUnique({
-      where: { id: 'singleton' },
-    })
+    const appState = await AppState.findByPk('singleton')
 
     if (appState && appState.stage !== 'RECEIVING_SUBMISSIONS' && !appState.testMode) {
       return NextResponse.json(
@@ -94,7 +120,7 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json()
-    const { name, description, pitchVideoUrl, docLink, projectType, slackChannel } = body
+    const { name, description, pitchVideoUrl, docLink, projectType, slackChannel, businessRationale, visionId, department } = body
 
     if (!name || !description || !projectType || !slackChannel) {
       return NextResponse.json(
@@ -103,34 +129,36 @@ export async function POST(request: Request) {
       )
     }
 
-    const project = await prisma.project.create({
-      data: {
-        name,
-        description,
-        pitchVideoUrl: pitchVideoUrl || null,
-        docLink: docLink || null,
-        projectType,
-        slackChannel,
-        creatorId: session.user.id,
-      },
-      include: {
-        creator: {
-          select: {
-            id: true,
-            name: true,
-            image: true,
-          },
-        },
-        votes: true,
-        _count: {
-          select: {
-            votes: true,
-          },
-        },
-      },
+    const project = await Project.create({
+      name,
+      description,
+      pitchVideoUrl: pitchVideoUrl || null,
+      docLink: docLink || null,
+      projectType,
+      slackChannel,
+      businessRationale: businessRationale || null,
+      visionId: visionId || null,
+      department: department || null,
+      creatorId: session.user.id,
     })
 
-    return NextResponse.json(project, { status: 201 })
+    // Fetch with creator included
+    const projectWithCreator = await Project.findByPk(project.id, {
+      include: [
+        {
+          model: User,
+          as: 'creator',
+          attributes: ['id', 'name', 'image'],
+        },
+      ],
+    })
+
+    const projectData = projectWithCreator?.toJSON()
+    return NextResponse.json({
+      ...projectData,
+      votes: [],
+      _count: { votes: 0 },
+    }, { status: 201 })
   } catch (error) {
     console.error('Error creating project:', error)
     return NextResponse.json({ error: 'Failed to create project' }, { status: 500 })

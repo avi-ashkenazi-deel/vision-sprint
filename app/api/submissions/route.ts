@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import { prisma } from '@/lib/prisma'
+import { Submission, TeamMember, AppState } from '@/models'
 
 // POST create/update submission
 export async function POST(request: Request) {
@@ -13,9 +13,7 @@ export async function POST(request: Request) {
     }
 
     // Check app state
-    const appState = await prisma.appState.findUnique({
-      where: { id: 'singleton' },
-    })
+    const appState = await AppState.findByPk('singleton')
 
     if (appState && appState.stage !== 'EXECUTING_SPRINT' && !appState.testMode) {
       return NextResponse.json(
@@ -35,7 +33,7 @@ export async function POST(request: Request) {
     }
 
     // Check if user is a member of this team
-    const teamMember = await prisma.teamMember.findFirst({
+    const teamMember = await TeamMember.findOne({
       where: {
         teamId,
         userId: session.user.id,
@@ -50,16 +48,18 @@ export async function POST(request: Request) {
     }
 
     // Create or update submission
-    const submission = await prisma.submission.upsert({
-      where: { teamId },
-      update: { videoUrl },
-      create: {
+    let submission = await Submission.findOne({ where: { teamId } })
+
+    if (submission) {
+      await submission.update({ videoUrl })
+    } else {
+      submission = await Submission.create({
         teamId,
         videoUrl,
-      },
-    })
+      })
+    }
 
-    return NextResponse.json(submission)
+    return NextResponse.json(submission.toJSON())
   } catch (error) {
     console.error('Error creating submission:', error)
     return NextResponse.json({ error: 'Failed to create submission' }, { status: 500 })

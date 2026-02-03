@@ -16,6 +16,9 @@ interface Project {
   docLink: string | null
   projectType: ProjectType
   slackChannel: string
+  businessRationale: string | null
+  visionId: string | null
+  department: string | null
   creatorId: string
 }
 

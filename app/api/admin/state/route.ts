@@ -1,29 +1,25 @@
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import { prisma } from '@/lib/prisma'
+import { AppState, AppStage } from '@/models'
 
 // GET current app state
 export async function GET() {
   try {
-    let appState = await prisma.appState.findUnique({
-      where: { id: 'singleton' },
-    })
+    let appState = await AppState.findByPk('singleton')
 
     // Create default state if doesn't exist
     if (!appState) {
-      appState = await prisma.appState.create({
-        data: {
-          id: 'singleton',
-          stage: 'RECEIVING_SUBMISSIONS',
-          sprintStartDate: new Date('2026-03-02T09:00:00Z'),
-          sprintEndDate: new Date('2026-03-03T18:00:00Z'),
-          testMode: false,
-        },
+      appState = await AppState.create({
+        id: 'singleton',
+        stage: AppStage.RECEIVING_SUBMISSIONS,
+        sprintStartDate: new Date('2026-03-02T09:00:00Z'),
+        sprintEndDate: new Date('2026-03-03T18:00:00Z'),
+        testMode: false,
       })
     }
 
-    return NextResponse.json(appState)
+    return NextResponse.json(appState.toJSON())
   } catch (error) {
     console.error('Error fetching app state:', error)
     return NextResponse.json({ error: 'Failed to fetch app state' }, { status: 500 })
@@ -42,24 +38,26 @@ export async function PUT(request: Request) {
     const body = await request.json()
     const { stage, sprintStartDate, sprintEndDate, testMode } = body
 
-    const appState = await prisma.appState.upsert({
-      where: { id: 'singleton' },
-      update: {
+    let appState = await AppState.findByPk('singleton')
+
+    if (appState) {
+      await appState.update({
         ...(stage && { stage }),
         ...(sprintStartDate && { sprintStartDate: new Date(sprintStartDate) }),
         ...(sprintEndDate && { sprintEndDate: new Date(sprintEndDate) }),
         ...(typeof testMode === 'boolean' && { testMode }),
-      },
-      create: {
+      })
+    } else {
+      appState = await AppState.create({
         id: 'singleton',
-        stage: stage || 'RECEIVING_SUBMISSIONS',
+        stage: stage || AppStage.RECEIVING_SUBMISSIONS,
         sprintStartDate: sprintStartDate ? new Date(sprintStartDate) : new Date('2026-03-02T09:00:00Z'),
         sprintEndDate: sprintEndDate ? new Date(sprintEndDate) : new Date('2026-03-03T18:00:00Z'),
         testMode: testMode || false,
-      },
-    })
+      })
+    }
 
-    return NextResponse.json(appState)
+    return NextResponse.json(appState.toJSON())
   } catch (error) {
     console.error('Error updating app state:', error)
     return NextResponse.json({ error: 'Failed to update app state' }, { status: 500 })

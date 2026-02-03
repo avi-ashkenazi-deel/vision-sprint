@@ -20,6 +20,8 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  // Exclude pg and sequelize from Turbopack bundling
+  serverExternalPackages: ['pg', 'pg-hstore', 'sequelize'],
 };
 
 export default nextConfig;

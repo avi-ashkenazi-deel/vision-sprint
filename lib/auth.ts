@@ -1,35 +1,112 @@
 import { NextAuthOptions } from 'next-auth'
 import GoogleProvider from 'next-auth/providers/google'
-import { PrismaAdapter } from '@auth/prisma-adapter'
-import { prisma } from './prisma'
+import CredentialsProvider from 'next-auth/providers/credentials'
+import { SequelizeAdapter } from './sequelize-adapter'
+import { User } from '../models'
+
+// Check if Google OAuth is configured
+const isGoogleConfigured = 
+  process.env.GOOGLE_CLIENT_ID && 
+  process.env.GOOGLE_CLIENT_ID !== 'your-google-client-id' &&
+  process.env.GOOGLE_CLIENT_SECRET &&
+  process.env.GOOGLE_CLIENT_SECRET !== 'your-google-client-secret'
+
+// Only enable dev login in development (not production)
+const isProduction = process.env.NODE_ENV === 'production'
+const enableDevLogin = !isProduction && process.env.ENABLE_DEV_LOGIN !== 'false'
 
 export const authOptions: NextAuthOptions = {
-  adapter: PrismaAdapter(prisma) as NextAuthOptions['adapter'],
+  adapter: SequelizeAdapter(),
   providers: [
-    GoogleProvider({
-      clientId: process.env.GOOGLE_CLIENT_ID!,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
-    }),
+    // Google OAuth (if configured)
+    ...(isGoogleConfigured
+      ? [
+          GoogleProvider({
+            clientId: process.env.GOOGLE_CLIENT_ID!,
+            clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+          }),
+        ]
+      : []),
+    // Development credentials login (only in dev mode)
+    ...(enableDevLogin
+      ? [
+          CredentialsProvider({
+            id: 'dev-login',
+            name: 'Development Login',
+            credentials: {
+              email: { label: 'Email', type: 'email', placeholder: 'alice@example.com' },
+            },
+            async authorize(credentials) {
+              if (!credentials?.email) return null
+
+              // Find or create user
+              let user = await User.findOne({
+                where: { email: credentials.email },
+                raw: true,
+              }) as { id: string; email: string | null; name: string | null; image: string | null } | null
+
+              if (!user) {
+                // Create user if doesn't exist
+                const newUser = await User.create({
+                  email: credentials.email,
+                  name: credentials.email.split('@')[0],
+                  isAdmin: credentials.email === 'alice@example.com',
+                  accessVerified: true, // Dev users bypass access verification
+                })
+                user = {
+                  id: newUser.id,
+                  email: newUser.email,
+                  name: newUser.name,
+                  image: newUser.image,
+                }
+              }
+
+              return {
+                id: user.id,
+                email: user.email,
+                name: user.name,
+                image: user.image,
+              }
+            },
+          }),
+        ]
+      : []),
   ],
   callbacks: {
-    async session({ session, user }) {
+    async session({ session, user, token }) {
       if (session.user) {
-        session.user.id = user.id
-        // Fetch isAdmin from database
-        const dbUser = await prisma.user.findUnique({
-          where: { id: user.id },
-          select: { isAdmin: true },
-        })
-        session.user.isAdmin = dbUser?.isAdmin ?? false
+        // For credentials provider, user info comes from token
+        const userId = user?.id || token?.sub
+        if (userId) {
+          session.user.id = userId
+          // Fetch user data from database (use raw: true to get plain values)
+          const dbUser = await User.findByPk(userId, {
+            attributes: ['isAdmin', 'name', 'email', 'image', 'discipline', 'accessVerified'],
+            raw: true,
+          }) as { isAdmin: boolean; name: string | null; email: string | null; image: string | null; discipline: string | null; accessVerified: boolean } | null
+          session.user.isAdmin = dbUser?.isAdmin ?? false
+          session.user.name = dbUser?.name ?? null
+          session.user.email = dbUser?.email ?? null
+          session.user.image = dbUser?.image ?? null
+          session.user.discipline = (dbUser?.discipline as 'DEV' | 'PRODUCT' | 'DATA' | 'DESIGNER') ?? null
+          session.user.accessVerified = dbUser?.accessVerified ?? false
+        }
       }
       return session
+    },
+    async jwt({ token, user }) {
+      if (user) {
+        token.sub = user.id
+      }
+      return token
     },
   },
   pages: {
     signIn: '/auth/signin',
   },
   session: {
-    strategy: 'database',
+    // Use JWT for credentials provider compatibility
+    strategy: 'jwt',
   },
 }
 
@@ -42,6 +119,8 @@ declare module 'next-auth' {
       email?: string | null
       image?: string | null
       isAdmin: boolean
+      accessVerified: boolean
+      discipline: 'DEV' | 'PRODUCT' | 'DATA' | 'DESIGNER' | null
     }
   }
 }

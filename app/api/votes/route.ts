@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import { prisma } from '@/lib/prisma'
+import { Project, User, Vote, AppState } from '@/models'
 
 // POST create vote
 export async function POST(request: Request) {
@@ -13,9 +13,7 @@ export async function POST(request: Request) {
     }
 
     // Check app state
-    const appState = await prisma.appState.findUnique({
-      where: { id: 'singleton' },
-    })
+    const appState = await AppState.findByPk('singleton')
 
     if (appState && appState.stage !== 'RECEIVING_SUBMISSIONS' && !appState.testMode) {
       return NextResponse.json(
@@ -32,21 +30,17 @@ export async function POST(request: Request) {
     }
 
     // Check if project exists
-    const project = await prisma.project.findUnique({
-      where: { id: projectId },
-    })
+    const project = await Project.findByPk(projectId)
 
     if (!project) {
       return NextResponse.json({ error: 'Project not found' }, { status: 404 })
     }
 
     // Check if already voted
-    const existingVote = await prisma.vote.findUnique({
+    const existingVote = await Vote.findOne({
       where: {
-        userId_projectId: {
-          userId: session.user.id,
-          projectId,
-        },
+        userId: session.user.id,
+        projectId,
       },
     })
 
@@ -54,23 +48,23 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Already voted' }, { status: 400 })
     }
 
-    const vote = await prisma.vote.create({
-      data: {
-        userId: session.user.id,
-        projectId,
-      },
-      include: {
-        user: {
-          select: {
-            id: true,
-            name: true,
-            image: true,
-          },
-        },
-      },
+    const vote = await Vote.create({
+      userId: session.user.id,
+      projectId,
     })
 
-    return NextResponse.json(vote, { status: 201 })
+    // Fetch with user included
+    const voteWithUser = await Vote.findByPk(vote.id, {
+      include: [
+        {
+          model: User,
+          as: 'user',
+          attributes: ['id', 'name', 'image'],
+        },
+      ],
+    })
+
+    return NextResponse.json(voteWithUser?.toJSON(), { status: 201 })
   } catch (error) {
     console.error('Error creating vote:', error)
     return NextResponse.json({ error: 'Failed to vote' }, { status: 500 })
@@ -87,9 +81,7 @@ export async function DELETE(request: Request) {
     }
 
     // Check app state
-    const appState = await prisma.appState.findUnique({
-      where: { id: 'singleton' },
-    })
+    const appState = await AppState.findByPk('singleton')
 
     if (appState && appState.stage !== 'RECEIVING_SUBMISSIONS' && !appState.testMode) {
       return NextResponse.json(
@@ -105,12 +97,10 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ error: 'Project ID required' }, { status: 400 })
     }
 
-    const vote = await prisma.vote.findUnique({
+    const vote = await Vote.findOne({
       where: {
-        userId_projectId: {
-          userId: session.user.id,
-          projectId,
-        },
+        userId: session.user.id,
+        projectId,
       },
     })
 
@@ -118,9 +108,7 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ error: 'Vote not found' }, { status: 404 })
     }
 
-    await prisma.vote.delete({
-      where: { id: vote.id },
-    })
+    await vote.destroy()
 
     return NextResponse.json({ success: true })
   } catch (error) {

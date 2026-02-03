@@ -1,10 +1,11 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
-import { PROJECT_TYPE_LABELS, PROJECT_TYPE_COLORS, type ProjectType } from '@/types'
+import Link from 'next/link'
+import { PROJECT_TYPE_LABELS, PROJECT_TYPE_COLORS, VISION_AREA_COLORS, type ProjectType, type VisionWithDetails } from '@/types'
 import { getInitials } from '@/lib/utils'
 
 interface ProjectFormProps {
@@ -17,6 +18,9 @@ interface ProjectFormProps {
     docLink: string | null
     projectType: ProjectType
     slackChannel: string
+    businessRationale: string | null
+    visionId: string | null
+    department: string | null
   }
   restrictedEdit?: boolean // When true, only slack and doc are editable
 }
@@ -26,6 +30,42 @@ export function ProjectForm({ mode, initialData, restrictedEdit }: ProjectFormPr
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [visions, setVisions] = useState<VisionWithDetails[]>([])
+  const [loadingVisions, setLoadingVisions] = useState(true)
+
+  // Google Doc URL validation
+  const isValidGoogleDocUrl = (url: string) => {
+    return url.includes('docs.google.com/document')
+  }
+
+  // Google Drive video URL validation
+  const isValidGoogleDriveVideoUrl = (url: string) => {
+    if (!url) return true // Empty is valid (optional field)
+    return url.includes('drive.google.com') || url.includes('docs.google.com/file')
+  }
+
+  // Convert Google Doc URL to embed URL
+  const getGoogleDocEmbedUrl = (url: string) => {
+    if (!url) return ''
+    // Convert view/edit URL to embed URL
+    // https://docs.google.com/document/d/DOC_ID/edit -> https://docs.google.com/document/d/DOC_ID/preview
+    const match = url.match(/docs\.google\.com\/document\/d\/([a-zA-Z0-9_-]+)/)
+    if (match) {
+      return `https://docs.google.com/document/d/${match[1]}/preview`
+    }
+    return ''
+  }
+
+  // Convert Google Drive URL to embed URL
+  const getGoogleDriveEmbedUrl = (url: string) => {
+    if (!url) return ''
+    // Extract file ID from various Google Drive URL formats
+    const match = url.match(/(?:drive\.google\.com\/file\/d\/|docs\.google\.com\/file\/d\/)([a-zA-Z0-9_-]+)/)
+    if (match) {
+      return `https://drive.google.com/file/d/${match[1]}/preview`
+    }
+    return ''
+  }
 
   const [name, setName] = useState(initialData?.name || '')
   const [description, setDescription] = useState(initialData?.description || '')
@@ -34,7 +74,28 @@ export function ProjectForm({ mode, initialData, restrictedEdit }: ProjectFormPr
   const [projectType, setProjectType] = useState<ProjectType>(
     initialData?.projectType || 'SMALL_FEATURE'
   )
-  const [slackChannel, setSlackChannel] = useState(initialData?.slackChannel || '')
+  const [slackChannel, setSlackChannel] = useState(initialData?.slackChannel || 'VS26Q1-')
+  const [businessRationale, setBusinessRationale] = useState(initialData?.businessRationale || '')
+  const [visionId, setVisionId] = useState<string | null>(initialData?.visionId || null)
+  const [department, setDepartment] = useState(initialData?.department || '')
+
+  // Fetch visions for the dropdown
+  useEffect(() => {
+    async function fetchVisions() {
+      try {
+        const res = await fetch('/api/visions')
+        if (res.ok) {
+          const data = await res.json()
+          setVisions(data)
+        }
+      } catch (err) {
+        console.error('Failed to fetch visions:', err)
+      } finally {
+        setLoadingVisions(false)
+      }
+    }
+    fetchVisions()
+  }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -51,6 +112,9 @@ export function ProjectForm({ mode, initialData, restrictedEdit }: ProjectFormPr
             docLink: docLink || null,
             projectType,
             slackChannel,
+            businessRationale: businessRationale || null,
+            visionId: visionId || null,
+            department: department || null,
           }
 
       const url =
@@ -81,6 +145,44 @@ export function ProjectForm({ mode, initialData, restrictedEdit }: ProjectFormPr
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
+      {/* Security Warning Banner */}
+      <div className="p-4 rounded-lg bg-amber-500/10 border border-amber-500/30">
+        <div className="flex items-start gap-3">
+          <svg className="w-5 h-5 text-amber-400 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+          </svg>
+          <div>
+            <p className="font-medium text-amber-400">Important Security Notice</p>
+            <p className="text-sm text-amber-300/80 mt-1">
+              Do not include any proprietary business logic, confidential code, or sensitive company information in your submissions. 
+              Use your Google Doc for detailed descriptions.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Google Doc Template Link */}
+      <div className="p-4 rounded-lg bg-purple-500/10 border border-purple-500/30">
+        <div className="flex items-center gap-3">
+          <svg className="w-5 h-5 text-purple-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+          </svg>
+          <div className="flex-1">
+            <p className="text-sm text-purple-300">
+              <strong>Before you start:</strong> Create a copy of our project description template
+            </p>
+          </div>
+          <a
+            href="https://docs.google.com/document/d/1TEMPLATE_ID_HERE/copy"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="btn-secondary text-sm whitespace-nowrap"
+          >
+            Open Template
+          </a>
+        </div>
+      </div>
+
       {error && (
         <div className="p-4 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400">
           {error}
@@ -128,21 +230,55 @@ export function ProjectForm({ mode, initialData, restrictedEdit }: ProjectFormPr
         />
       </div>
 
-      {/* Description */}
+      {/* Description - Google Doc URL */}
       <div>
         <label htmlFor="description" className="block text-sm font-medium text-gray-300 mb-2">
-          Description *
+          Project Description (Google Doc URL) *
         </label>
-        <textarea
+        <input
+          type="url"
           id="description"
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           disabled={restrictedEdit}
           required={!restrictedEdit}
-          rows={4}
-          placeholder="Describe your project idea, its goals, and potential impact"
-          className="input-field resize-none disabled:opacity-50 disabled:cursor-not-allowed"
+          placeholder="https://docs.google.com/document/d/..."
+          className={`input-field disabled:opacity-50 disabled:cursor-not-allowed ${
+            description && !isValidGoogleDocUrl(description) ? 'border-red-500/50' : ''
+          }`}
         />
+        {description && !isValidGoogleDocUrl(description) && (
+          <p className="text-xs text-red-400 mt-2">
+            Please enter a valid Google Docs URL (e.g., https://docs.google.com/document/d/...)
+          </p>
+        )}
+        <p className="text-xs text-gray-500 mt-2">
+          Create a Google Doc using the template and paste the shareable link here. Make sure the doc is set to &quot;Anyone with the link can view&quot;.
+        </p>
+        
+        {/* Google Doc Preview */}
+        {description && isValidGoogleDocUrl(description) && (
+          <div className="mt-4 rounded-lg overflow-hidden border border-white/10">
+            <div className="bg-white/5 px-3 py-2 text-xs text-gray-400 flex items-center justify-between">
+              <span>Document Preview</span>
+              <a 
+                href={description} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-purple-400 hover:underline"
+              >
+                Open in new tab
+              </a>
+            </div>
+            <iframe
+              src={getGoogleDocEmbedUrl(description)}
+              width="100%"
+              height="400"
+              className="bg-white"
+              title="Google Doc Preview"
+            />
+          </div>
+        )}
       </div>
 
       {/* Project type */}
@@ -175,10 +311,83 @@ export function ProjectForm({ mode, initialData, restrictedEdit }: ProjectFormPr
         </div>
       </div>
 
-      {/* Pitch video URL (optional) */}
+      {/* Department / Team */}
+      <div>
+        <label htmlFor="department" className="block text-sm font-medium text-gray-300 mb-2">
+          Department / Team
+          <span className="text-gray-500 ml-2">(optional)</span>
+        </label>
+        <input
+          type="text"
+          id="department"
+          value={department}
+          onChange={(e) => setDepartment(e.target.value)}
+          disabled={restrictedEdit}
+          placeholder="e.g., Engineering, Product, Sales, Marketing..."
+          className="input-field disabled:opacity-50 disabled:cursor-not-allowed"
+        />
+        <p className="text-xs text-gray-500 mt-2">
+          Specify which department or team this project is for.
+        </p>
+      </div>
+
+      {/* Related Vision */}
+      <div>
+        <label htmlFor="visionId" className="block text-sm font-medium text-gray-300 mb-2">
+          Related Vision / KPI
+          <span className="text-gray-500 ml-2">(optional)</span>
+        </label>
+        <div className="flex gap-3">
+          <select
+            id="visionId"
+            value={visionId || ''}
+            onChange={(e) => setVisionId(e.target.value || null)}
+            disabled={restrictedEdit}
+            className="input-field flex-1 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <option value="">Select a vision to align with...</option>
+            {loadingVisions ? (
+              <option disabled>Loading visions...</option>
+            ) : (
+              visions.map((vision) => (
+                <option key={vision.id} value={vision.id}>
+                  [{vision.area}] {vision.title}
+                </option>
+              ))
+            )}
+          </select>
+          <Link
+            href="/visions"
+            target="_blank"
+            className="btn-secondary text-sm whitespace-nowrap"
+          >
+            Browse Visions
+          </Link>
+        </div>
+        {visionId && visions.find(v => v.id === visionId) && (
+          <div className="mt-2 p-3 rounded-lg bg-white/5 border border-white/10">
+            <div className="flex items-center gap-2 mb-1">
+              <span className={`badge text-xs ${VISION_AREA_COLORS[visions.find(v => v.id === visionId)?.area || 'Other']}`}>
+                {visions.find(v => v.id === visionId)?.area}
+              </span>
+              <span className="font-medium text-sm">{visions.find(v => v.id === visionId)?.title}</span>
+            </div>
+            {visions.find(v => v.id === visionId)?.kpis && (
+              <p className="text-xs text-gray-400">
+                KPIs: {visions.find(v => v.id === visionId)?.kpis}
+              </p>
+            )}
+          </div>
+        )}
+        <p className="text-xs text-gray-500 mt-2">
+          Link your project to a company vision or KPI to help others understand its strategic alignment.
+        </p>
+      </div>
+
+      {/* Pitch video URL (optional) - Google Drive only */}
       <div>
         <label htmlFor="pitchVideoUrl" className="block text-sm font-medium text-gray-300 mb-2">
-          Pitch Video URL
+          Pitch Video (Google Drive)
           <span className="text-gray-500 ml-2">(optional)</span>
         </label>
         <input
@@ -187,9 +396,44 @@ export function ProjectForm({ mode, initialData, restrictedEdit }: ProjectFormPr
           value={pitchVideoUrl}
           onChange={(e) => setPitchVideoUrl(e.target.value)}
           disabled={restrictedEdit}
-          placeholder="https://www.youtube.com/watch?v=..."
-          className="input-field disabled:opacity-50 disabled:cursor-not-allowed"
+          placeholder="https://drive.google.com/file/d/..."
+          className={`input-field disabled:opacity-50 disabled:cursor-not-allowed ${
+            pitchVideoUrl && !isValidGoogleDriveVideoUrl(pitchVideoUrl) ? 'border-red-500/50' : ''
+          }`}
         />
+        {pitchVideoUrl && !isValidGoogleDriveVideoUrl(pitchVideoUrl) && (
+          <p className="text-xs text-red-400 mt-2">
+            Please use a Google Drive video link. YouTube links are not allowed for security reasons.
+          </p>
+        )}
+        <p className="text-xs text-gray-500 mt-2">
+          Upload your video to Google Drive, set it to &quot;Anyone with the link can view&quot;, and paste the link here.
+        </p>
+        
+        {/* Google Drive Video Preview */}
+        {pitchVideoUrl && isValidGoogleDriveVideoUrl(pitchVideoUrl) && getGoogleDriveEmbedUrl(pitchVideoUrl) && (
+          <div className="mt-4 rounded-lg overflow-hidden border border-white/10">
+            <div className="bg-white/5 px-3 py-2 text-xs text-gray-400 flex items-center justify-between">
+              <span>Video Preview</span>
+              <a 
+                href={pitchVideoUrl} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-purple-400 hover:underline"
+              >
+                Open in new tab
+              </a>
+            </div>
+            <iframe
+              src={getGoogleDriveEmbedUrl(pitchVideoUrl)}
+              width="100%"
+              height="300"
+              className="bg-black"
+              title="Video Preview"
+              allow="autoplay"
+            />
+          </div>
+        )}
       </div>
 
       {/* Doc/Figma link (optional) */}
@@ -219,14 +463,17 @@ export function ProjectForm({ mode, initialData, restrictedEdit }: ProjectFormPr
             type="text"
             id="slackChannel"
             value={slackChannel}
-            onChange={(e) => setSlackChannel(e.target.value)}
+            onChange={(e) => setSlackChannel(e.target.value.toLowerCase().replace(/\s+/g, '-'))}
             required
-            placeholder="project-channel-name"
+            placeholder="VS26Q1-your-project-name"
             className="input-field pl-7"
           />
         </div>
-        <p className="text-xs text-gray-500 mt-1">
-          Where your team will communicate during the sprint
+        <p className="text-xs text-gray-500 mt-2">
+          📝 <strong>Naming convention:</strong> VS26Q1-your-project-name
+        </p>
+        <p className="text-xs text-gray-400 mt-1">
+          Allows people to contact you about your project now and in the future.
         </p>
       </div>
 

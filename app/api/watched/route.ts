@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import { prisma } from '@/lib/prisma'
+import { WatchedVideo } from '@/models'
 
 // POST mark video as watched
 export async function POST(request: Request) {
@@ -19,22 +19,19 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Team ID required' }, { status: 400 })
     }
 
-    // Create watched record (upsert to handle duplicates)
-    await prisma.watchedVideo.upsert({
+    // Create or find watched record
+    const [, created] = await WatchedVideo.findOrCreate({
       where: {
-        userId_teamId: {
-          userId: session.user.id,
-          teamId,
-        },
+        userId: session.user.id,
+        teamId,
       },
-      update: {},
-      create: {
+      defaults: {
         userId: session.user.id,
         teamId,
       },
     })
 
-    return NextResponse.json({ success: true })
+    return NextResponse.json({ success: true, created })
   } catch (error) {
     console.error('Error marking video as watched:', error)
     return NextResponse.json({ error: 'Failed to mark video as watched' }, { status: 500 })
@@ -50,9 +47,9 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const watchedVideos = await prisma.watchedVideo.findMany({
+    const watchedVideos = await WatchedVideo.findAll({
       where: { userId: session.user.id },
-      select: { teamId: true },
+      attributes: ['teamId'],
     })
 
     return NextResponse.json(watchedVideos.map((w) => w.teamId))

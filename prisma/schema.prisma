@@ -48,21 +48,33 @@ model VerificationToken {
 
 // Application models
 model User {
-  id            String       @id @default(cuid())
-  name          String?
-  email         String?      @unique
-  emailVerified DateTime?
-  image         String?
-  isAdmin       Boolean      @default(false)
-  accounts      Account[]
-  sessions      Session[]
-  projects      Project[]
-  votes         Vote[]
-  teamMembers   TeamMember[]
-  reactions     Reaction[]
-  watchedVideos WatchedVideo[]
-  createdAt     DateTime     @default(now())
-  updatedAt     DateTime     @updatedAt
+  id             String       @id @default(cuid())
+  name           String?
+  email          String?      @unique
+  emailVerified  DateTime?
+  image          String?
+  isAdmin        Boolean      @default(false)
+  accessVerified Boolean      @default(false)
+  discipline     Discipline?
+  accounts       Account[]
+  sessions       Session[]
+  projects       Project[]
+  votes          Vote[]
+  teamMembers    TeamMember[]
+  reactions      Reaction[]
+  watchedVideos  WatchedVideo[]
+  projectJoins   ProjectJoin[]
+  visions        Vision[]
+  visionLikes    VisionLike[]
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+}
+
+enum Discipline {
+  DEV
+  PRODUCT
+  DATA
+  DESIGNER
 }
 
 enum ProjectType {
@@ -73,23 +85,65 @@ enum ProjectType {
 }
 
 model Project {
-  id            String      @id @default(cuid())
-  name          String
-  description   String      @db.Text
-  pitchVideoUrl String?
-  docLink       String?
-  projectType   ProjectType
-  slackChannel  String
-  creatorId     String
-  creator       User        @relation(fields: [creatorId], references: [id], onDelete: Cascade)
-  votes         Vote[]
-  teams         Team[]
-  reactions     Reaction[]
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
+  id                String      @id @default(cuid())
+  name              String
+  description       String      @db.Text
+  pitchVideoUrl     String?
+  docLink           String?
+  projectType       ProjectType
+  slackChannel      String
+  businessRationale String?     @db.Text
+  visionId          String?
+  vision            Vision?     @relation(fields: [visionId], references: [id], onDelete: SetNull)
+  creatorId         String
+  creator           User        @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  votes             Vote[]
+  teams             Team[]
+  reactions         Reaction[]
+  joins             ProjectJoin[]
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+}
+
+// Vision documents for inspiring project ideas
+model Vision {
+  id          String       @id @default(cuid())
+  title       String
+  description String       @db.Text
+  area        String       // Business area (e.g., "Growth", "Retention", "Efficiency")
+  docUrl      String?      // Link to full vision document
+  kpis        String?      @db.Text // Related KPIs as text or comma-separated
+  createdById String
+  createdBy   User         @relation(fields: [createdById], references: [id], onDelete: Cascade)
+  projects    Project[]    // Projects that reference this vision
+  likes       VisionLike[]
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+}
+
+model VisionLike {
+  id        String   @id @default(cuid())
+  userId    String
+  visionId  String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  vision    Vision   @relation(fields: [visionId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, visionId])
 }
 
 model Vote {
+  id        String   @id @default(cuid())
+  userId    String
+  projectId String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, projectId])
+}
+
+model ProjectJoin {
   id        String   @id @default(cuid())
   userId    String
   projectId String

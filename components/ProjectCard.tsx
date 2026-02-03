@@ -7,7 +7,7 @@ import { useSession } from 'next-auth/react'
 import { PROJECT_TYPE_LABELS, PROJECT_TYPE_COLORS, type ProjectType } from '@/types'
 import { formatDate, getInitials } from '@/lib/utils'
 
-interface Voter {
+interface UserInfo {
   id: string
   name: string | null
   image: string | null
@@ -23,12 +23,16 @@ interface ProjectCardProps {
     name: string | null
     image: string | null
   }
-  voters: Voter[]
+  voters: UserInfo[]
   voteCount: number
   hasVoted: boolean
+  joiners?: UserInfo[]
+  joinCount?: number
+  hasJoined?: boolean
   updatedAt: string
   onVote?: (projectId: string) => Promise<void>
   onUnvote?: (projectId: string) => Promise<void>
+  onJoin?: (projectId: string) => Promise<void>
   canEdit?: boolean
 }
 
@@ -41,24 +45,31 @@ export function ProjectCard({
   voters,
   voteCount,
   hasVoted,
+  joiners = [],
+  joinCount = 0,
+  hasJoined = false,
   updatedAt,
   onVote,
   onUnvote,
+  onJoin,
   canEdit,
 }: ProjectCardProps) {
   const { data: session } = useSession()
   const [isHovered, setIsHovered] = useState(false)
-  const [isVoting, setIsVoting] = useState(false)
+  const [isLiking, setIsLiking] = useState(false)
+  const [isJoining, setIsJoining] = useState(false)
   const [localHasVoted, setLocalHasVoted] = useState(hasVoted)
   const [localVoteCount, setLocalVoteCount] = useState(voteCount)
+  const [localHasJoined, setLocalHasJoined] = useState(hasJoined)
+  const [localJoinCount, setLocalJoinCount] = useState(joinCount)
 
-  const handleVote = async (e: React.MouseEvent) => {
+  const handleLike = async (e: React.MouseEvent) => {
     e.preventDefault()
     e.stopPropagation()
     
-    if (!session || isVoting) return
+    if (!session || isLiking) return
 
-    setIsVoting(true)
+    setIsLiking(true)
     try {
       if (localHasVoted && onUnvote) {
         await onUnvote(id)
@@ -70,14 +81,34 @@ export function ProjectCard({
         setLocalVoteCount((prev) => prev + 1)
       }
     } catch (error) {
-      console.error('Vote error:', error)
+      console.error('Like error:', error)
     } finally {
-      setIsVoting(false)
+      setIsLiking(false)
     }
   }
 
-  const displayedVoters = voters.slice(0, 5)
-  const remainingVoters = voters.length > 5 ? voters.length - 5 : 0
+  const handleJoin = async (e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    
+    if (!session || isJoining || !onJoin) return
+
+    setIsJoining(true)
+    try {
+      await onJoin(id)
+      setLocalHasJoined(!localHasJoined)
+      setLocalJoinCount((prev) => localHasJoined ? prev - 1 : prev + 1)
+    } catch (error) {
+      console.error('Join error:', error)
+    } finally {
+      setIsJoining(false)
+    }
+  }
+
+  // Combine voters and joiners for display, prioritizing joiners
+  const allInterested = [...joiners, ...voters.filter(v => !joiners.some(j => j.id === v.id))]
+  const displayedUsers = allInterested.slice(0, 5)
+  const remainingUsers = allInterested.length > 5 ? allInterested.length - 5 : 0
 
   return (
     <Link href={`/projects/${id}`}>
@@ -128,67 +159,104 @@ export function ProjectCard({
           <span className="text-sm text-gray-300">{creator.name}</span>
         </div>
 
-        {/* Footer: voters and vote button */}
+        {/* Footer: interested users and action buttons */}
         <div className="flex items-center justify-between pt-3 border-t border-white/5">
-          {/* Voters avatars */}
+          {/* Interested users avatars and stats */}
           <div className="flex items-center gap-2">
-            {displayedVoters.length > 0 ? (
+            {displayedUsers.length > 0 ? (
               <div className="avatar-stack">
-                {displayedVoters.map((voter) => (
-                  voter.image ? (
+                {displayedUsers.map((user) => (
+                  user.image ? (
                     <Image
-                      key={voter.id}
-                      src={voter.image}
-                      alt={voter.name || 'Voter'}
+                      key={user.id}
+                      src={user.image}
+                      alt={user.name || 'User'}
                       width={24}
                       height={24}
                       className="w-6 h-6 rounded-full"
                     />
                   ) : (
                     <div
-                      key={voter.id}
+                      key={user.id}
                       className="w-6 h-6 rounded-full bg-gradient-to-br from-purple-500/50 to-blue-500/50 flex items-center justify-center text-[10px] font-medium"
                     >
-                      {getInitials(voter.name)}
+                      {getInitials(user.name)}
                     </div>
                   )
                 ))}
-                {remainingVoters > 0 && (
+                {remainingUsers > 0 && (
                   <div className="w-6 h-6 rounded-full bg-gray-700 flex items-center justify-center text-[10px] text-gray-300">
-                    +{remainingVoters}
+                    +{remainingUsers}
                   </div>
                 )}
               </div>
             ) : (
-              <span className="text-xs text-gray-500">No votes yet</span>
+              <span className="text-xs text-gray-500">No interest yet</span>
             )}
-            <span className="text-sm text-gray-400">{localVoteCount} votes</span>
+            <div className="flex items-center gap-2 text-sm text-gray-400">
+              <span>{localVoteCount} likes</span>
+              {localJoinCount > 0 && (
+                <>
+                  <span className="text-gray-600">•</span>
+                  <span className="text-emerald-400">{localJoinCount} joining</span>
+                </>
+              )}
+            </div>
           </div>
 
-          {/* Vote button */}
+          {/* Action buttons */}
           {session && (
-            <button
-              onClick={handleVote}
-              disabled={isVoting}
-              className={`
-                flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all
-                ${isHovered ? 'opacity-100' : 'opacity-0'}
-                ${localHasVoted 
-                  ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30' 
-                  : 'bg-white/5 text-gray-300 border border-white/10 hover:bg-white/10'}
-                ${isVoting ? 'opacity-50 cursor-not-allowed' : ''}
-              `}
-            >
-              <svg 
-                className={`w-4 h-4 ${localHasVoted ? 'fill-purple-400' : ''}`} 
-                fill={localHasVoted ? 'currentColor' : 'none'} 
-                stroke="currentColor" 
-                viewBox="0 0 24 24"
+            <div className={`flex items-center gap-2 transition-opacity ${isHovered ? 'opacity-100' : 'opacity-0'}`}>
+              {/* Like button */}
+              <button
+                onClick={handleLike}
+                disabled={isLiking}
+                className={`
+                  flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all
+                  ${localHasVoted 
+                    ? 'bg-pink-500/20 text-pink-300 border border-pink-500/30' 
+                    : 'bg-white/5 text-gray-300 border border-white/10 hover:bg-white/10'}
+                  ${isLiking ? 'opacity-50 cursor-not-allowed' : ''}
+                `}
               >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
-              </svg>
-              {localHasVoted ? 'Voted' : 'Vote'}
-            </button>
+                <svg 
+                  className={`w-4 h-4 ${localHasVoted ? 'fill-pink-400' : ''}`} 
+                  fill={localHasVoted ? 'currentColor' : 'none'} 
+                  stroke="currentColor" 
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                </svg>
+                {localHasVoted ? 'Liked' : 'Like'}
+              </button>
+
+              {/* Join button */}
+              <button
+                onClick={handleJoin}
+                disabled={isJoining}
+                className={`
+                  flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all
+                  ${localHasJoined 
+                    ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' 
+                    : 'bg-white/5 text-gray-300 border border-white/10 hover:bg-white/10'}
+                  ${isJoining ? 'opacity-50 cursor-not-allowed' : ''}
+                `}
+              >
+                <svg 
+                  className="w-4 h-4" 
+                  fill="none" 
+                  stroke="currentColor" 
+                  viewBox="0 0 24 24"
+                >
+                  {localHasJoined ? (
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  ) : (
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+                  )}
+                </svg>
+                {localHasJoined ? 'Joined' : 'Join'}
+              </button>
+            </div>
           )}
         </div>
 

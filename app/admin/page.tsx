@@ -1,20 +1,25 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import { useAppState } from '@/components/providers/AppStateProvider'
 import Image from 'next/image'
-import { PROJECT_TYPE_LABELS, type ProjectType } from '@/types'
+import { PROJECT_TYPE_LABELS, DISCIPLINE_LABELS, DISCIPLINE_COLORS, type ProjectType, type Discipline } from '@/types'
 import { getInitials } from '@/lib/utils'
 
 type AppStage = 'RECEIVING_SUBMISSIONS' | 'EXECUTING_SPRINT' | 'SPRINT_OVER'
+
+const MAX_DESIGNERS_PER_TEAM = 3
 
 interface Project {
   id: string
   name: string
   projectType: ProjectType
-  _count: { votes: number }
+  _count: { votes: number; joins: number }
+  joins: {
+    user: { id: string; name: string | null; image: string | null }
+  }[]
   teams: {
     id: string
     teamName: string
@@ -29,6 +34,8 @@ interface User {
   email: string | null
   image: string | null
 }
+
+const TEAM_SIZE = 3
 
 export default function AdminPage() {
   const { data: session, status } = useSession()
@@ -48,8 +55,8 @@ export default function AdminPage() {
   // Team formation state
   const [selectedProject, setSelectedProject] = useState<string | null>(null)
   const [teamMembers, setTeamMembers] = useState<string[]>([])
-  const [teamName, setTeamName] = useState('')
   const [creatingTeam, setCreatingTeam] = useState(false)
+  const [teamError, setTeamError] = useState<string | null>(null)
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -99,6 +106,49 @@ export default function AdminPage() {
     }
   }
 
+  // Filter projects that don't have a complete team (3 members)
+  const availableProjects = useMemo(() => {
+    return projects.filter(project => {
+      // A project is available if it has no teams, or no team has reached TEAM_SIZE members
+      if (project.teams.length === 0) return true
+      // Check if all teams are full
+      const allTeamsFull = project.teams.every(team => team.members.length >= TEAM_SIZE)
+      return !allTeamsFull
+    })
+  }, [projects])
+
+  // Get users already assigned to ANY team (across all projects)
+  const assignedUserIds = useMemo(() => {
+    const ids = new Set<string>()
+    projects.forEach(project => {
+      project.teams.forEach(team => {
+        team.members.forEach(member => {
+          ids.add(member.user.id)
+        })
+      })
+    })
+    return ids
+  }, [projects])
+
+  // Get user IDs who want to join the selected project
+  const joinedUserIds = useMemo(() => {
+    if (!selectedProject) return new Set<string>()
+    const project = projects.find(p => p.id === selectedProject)
+    if (!project) return new Set<string>()
+    return new Set(project.joins.map(j => j.user.id))
+  }, [selectedProject, projects])
+
+  // Available users (not already assigned to any team), sorted with joiners first
+  const availableUsers = useMemo(() => {
+    const filtered = users.filter(user => !assignedUserIds.has(user.id))
+    // Sort: users who joined the selected project come first
+    return filtered.sort((a, b) => {
+      const aJoined = joinedUserIds.has(a.id) ? 1 : 0
+      const bJoined = joinedUserIds.has(b.id) ? 1 : 0
+      return bJoined - aJoined // Descending so joined users come first
+    })
+  }, [users, assignedUserIds, joinedUserIds])
+
   const handleSaveSettings = async () => {
     setSaving(true)
     try {
@@ -124,9 +174,32 @@ export default function AdminPage() {
   }
 
   const handleCreateTeam = async () => {
-    if (!selectedProject || teamMembers.length === 0 || !teamName) return
+    // Validate inputs
+    if (!selectedProject) {
+      setTeamError('Please select a project')
+      return
+    }
+    if (teamMembers.length !== TEAM_SIZE) {
+      setTeamError(`Please select exactly ${TEAM_SIZE} members`)
+      return
+    }
+
+    // Get project name for team name
+    const project = projects.find(p => p.id === selectedProject)
+    if (!project) {
+      setTeamError('Project not found')
+      return
+    }
+
+    // Generate team name: "Project Name" or "Project Name (Team 2)" if there's already a team
+    const existingTeamsCount = project.teams.length
+    const teamName = existingTeamsCount > 0 
+      ? `${project.name} (Team ${existingTeamsCount + 1})`
+      : project.name
 
     setCreatingTeam(true)
+    setTeamError(null)
+    
     try {
       const res = await fetch('/api/teams', {
         method: 'POST',
@@ -140,12 +213,16 @@ export default function AdminPage() {
 
       if (res.ok) {
         setTeamMembers([])
-        setTeamName('')
         setSelectedProject(null)
+        setTeamError(null)
         fetchData()
+      } else {
+        const data = await res.json()
+        setTeamError(data.error || 'Failed to create team')
       }
     } catch (error) {
       console.error('Failed to create team:', error)
+      setTeamError('Failed to create team. Please try again.')
     } finally {
       setCreatingTeam(false)
     }
@@ -179,6 +256,19 @@ export default function AdminPage() {
     } catch (error) {
       console.error('Failed to delete team:', error)
     }
+  }
+
+  // Helper to get team status for a project
+  const getProjectTeamStatus = (project: Project) => {
+    if (project.teams.length === 0) return { status: 'no-team', label: 'No team assigned', color: 'text-gray-400' }
+    
+    const totalMembers = project.teams.reduce((sum, team) => sum + team.members.length, 0)
+    const hasFullTeam = project.teams.some(team => team.members.length >= TEAM_SIZE)
+    
+    if (hasFullTeam) {
+      return { status: 'complete', label: `${totalMembers} members (complete)`, color: 'text-emerald-400' }
+    }
+    return { status: 'partial', label: `${totalMembers} members (incomplete)`, color: 'text-amber-400' }
   }
 
   if (status === 'loading' || !session?.user?.isAdmin) {
@@ -318,102 +408,165 @@ export default function AdminPage() {
             </div>
           ) : (
             <>
+              {/* Error message */}
+              {teamError && (
+                <div className="mb-4 p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-sm">
+                  {teamError}
+                </div>
+              )}
+
               {/* Project selection */}
               <div className="mb-4">
                 <label className="block text-sm font-medium text-gray-300 mb-2">
                   Select Project
+                  <span className="text-gray-500 ml-2">
+                    ({availableProjects.length} available)
+                  </span>
                 </label>
-                <select
-                  value={selectedProject || ''}
-                  onChange={(e) => setSelectedProject(e.target.value || null)}
-                  className="input-field"
-                >
-                  <option value="">Choose a project...</option>
-                  {projects.map((project) => (
-                    <option key={project.id} value={project.id}>
-                      {project.name} ({project._count.votes} votes) - {PROJECT_TYPE_LABELS[project.projectType]}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Team name */}
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Team Name
-                </label>
-                <input
-                  type="text"
-                  value={teamName}
-                  onChange={(e) => setTeamName(e.target.value)}
-                  placeholder="e.g., Team Alpha"
-                  className="input-field"
-                />
+                {availableProjects.length === 0 ? (
+                  <div className="p-4 rounded-lg bg-white/5 text-gray-400 text-sm">
+                    All projects have complete teams. Duplicate a project below to add another team.
+                  </div>
+                ) : (
+                  <select
+                    value={selectedProject || ''}
+                    onChange={(e) => {
+                      const projectId = e.target.value || null
+                      setSelectedProject(projectId)
+                      setTeamError(null)
+                      
+                      // Pre-select users who joined this project (up to TEAM_SIZE)
+                      if (projectId) {
+                        const project = projects.find(p => p.id === projectId)
+                        if (project) {
+                          const joinedAvailableUsers = project.joins
+                            .map(j => j.user.id)
+                            .filter(id => !assignedUserIds.has(id))
+                            .slice(0, TEAM_SIZE)
+                          setTeamMembers(joinedAvailableUsers)
+                        } else {
+                          setTeamMembers([])
+                        }
+                      } else {
+                        setTeamMembers([])
+                      }
+                    }}
+                    className="input-field"
+                  >
+                    <option value="">Choose a project...</option>
+                    {availableProjects.map((project) => {
+                      const joinCount = project._count.joins
+                      return (
+                        <option key={project.id} value={project.id}>
+                          {project.name} ({project._count.votes} likes{joinCount > 0 ? `, ${joinCount} joining` : ''}) - {PROJECT_TYPE_LABELS[project.projectType]}
+                        </option>
+                      )
+                    })}
+                  </select>
+                )}
               </div>
 
               {/* Member selection */}
               <div className="mb-4">
                 <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Team Members (select 3)
+                  Team Members
+                  <span className={`ml-2 ${teamMembers.length === TEAM_SIZE ? 'text-emerald-400' : 'text-gray-500'}`}>
+                    ({teamMembers.length}/{TEAM_SIZE} selected)
+                  </span>
                 </label>
+                {selectedProject && joinedUserIds.size > 0 && (
+                  <div className="mb-2 text-xs text-emerald-400 flex items-center gap-1">
+                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    Users who want to join are highlighted and pre-selected
+                  </div>
+                )}
                 <div className="max-h-48 overflow-y-auto space-y-2 p-2 rounded-lg bg-white/5">
-                  {users.map((user) => (
-                    <label
-                      key={user.id}
-                      className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-colors ${
-                        teamMembers.includes(user.id)
-                          ? 'bg-purple-500/20'
-                          : 'hover:bg-white/5'
-                      }`}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={teamMembers.includes(user.id)}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            setTeamMembers([...teamMembers, user.id])
-                          } else {
-                            setTeamMembers(teamMembers.filter((id) => id !== user.id))
-                          }
-                        }}
-                        className="sr-only"
-                      />
-                      <div className={`w-5 h-5 rounded border flex items-center justify-center ${
-                        teamMembers.includes(user.id)
-                          ? 'border-purple-500 bg-purple-500'
-                          : 'border-gray-500'
-                      }`}>
-                        {teamMembers.includes(user.id) && (
-                          <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                          </svg>
-                        )}
-                      </div>
-                      {user.image ? (
-                        <Image
-                          src={user.image}
-                          alt={user.name || ''}
-                          width={24}
-                          height={24}
-                          className="rounded-full"
-                        />
-                      ) : (
-                        <div className="w-6 h-6 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center text-xs">
-                          {getInitials(user.name)}
-                        </div>
-                      )}
-                      <span className="text-sm">{user.name}</span>
-                    </label>
-                  ))}
+                  {availableUsers.length === 0 ? (
+                    <p className="text-gray-500 text-sm p-2">
+                      {selectedProject 
+                        ? 'All users are assigned to projects'
+                        : 'Select a project first'}
+                    </p>
+                  ) : (
+                    availableUsers.map((user) => {
+                      const wantsToJoin = joinedUserIds.has(user.id)
+                      return (
+                        <label
+                          key={user.id}
+                          className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-colors ${
+                            teamMembers.includes(user.id)
+                              ? wantsToJoin ? 'bg-emerald-500/20 border border-emerald-500/30' : 'bg-purple-500/20'
+                              : teamMembers.length >= TEAM_SIZE
+                              ? 'opacity-50 cursor-not-allowed'
+                              : wantsToJoin ? 'bg-emerald-500/10 hover:bg-emerald-500/20' : 'hover:bg-white/5'
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={teamMembers.includes(user.id)}
+                            disabled={!teamMembers.includes(user.id) && teamMembers.length >= TEAM_SIZE}
+                            onChange={(e) => {
+                              setTeamError(null)
+                              if (e.target.checked && teamMembers.length < TEAM_SIZE) {
+                                setTeamMembers([...teamMembers, user.id])
+                              } else if (!e.target.checked) {
+                                setTeamMembers(teamMembers.filter((id) => id !== user.id))
+                              }
+                            }}
+                            className="sr-only"
+                          />
+                          <div className={`w-5 h-5 rounded border flex items-center justify-center ${
+                            teamMembers.includes(user.id)
+                              ? wantsToJoin ? 'border-emerald-500 bg-emerald-500' : 'border-purple-500 bg-purple-500'
+                              : wantsToJoin ? 'border-emerald-500' : 'border-gray-500'
+                          }`}>
+                            {teamMembers.includes(user.id) && (
+                              <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                              </svg>
+                            )}
+                          </div>
+                          {user.image ? (
+                            <Image
+                              src={user.image}
+                              alt={user.name || ''}
+                              width={24}
+                              height={24}
+                              className={`rounded-full ${wantsToJoin ? 'ring-2 ring-emerald-500' : ''}`}
+                            />
+                          ) : (
+                            <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs ${
+                              wantsToJoin 
+                                ? 'bg-gradient-to-br from-emerald-500 to-teal-500 ring-2 ring-emerald-500' 
+                                : 'bg-gradient-to-br from-purple-500 to-blue-500'
+                            }`}>
+                              {getInitials(user.name)}
+                            </div>
+                          )}
+                          <span className="text-sm flex-1">{user.name || user.email}</span>
+                          {wantsToJoin && (
+                            <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                              wants to join
+                            </span>
+                          )}
+                        </label>
+                      )
+                    })
+                  )}
                 </div>
               </div>
 
               <button
                 onClick={handleCreateTeam}
-                disabled={!selectedProject || teamMembers.length === 0 || !teamName || creatingTeam}
-                className="btn-primary w-full disabled:opacity-50"
+                disabled={!selectedProject || teamMembers.length !== TEAM_SIZE || creatingTeam}
+                className="btn-primary w-full disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {creatingTeam ? 'Creating...' : 'Create Team'}
+                {creatingTeam ? 'Creating...' : 
+                  !selectedProject ? 'Select a project first' :
+                  teamMembers.length !== TEAM_SIZE ? `Select ${TEAM_SIZE - teamMembers.length} more member${TEAM_SIZE - teamMembers.length !== 1 ? 's' : ''}` :
+                  'Create Team'}
               </button>
             </>
           )}
@@ -434,78 +587,92 @@ export default function AdminPage() {
           <p className="text-gray-400 text-center py-8">No projects yet</p>
         ) : (
           <div className="space-y-4">
-            {projects.map((project, index) => (
-              <div key={project.id} className="p-4 rounded-lg bg-white/5 border border-white/10">
-                <div className="flex items-start justify-between mb-3">
-                  <div className="flex items-center gap-3">
-                    <span className="text-lg font-bold text-gray-500">#{index + 1}</span>
-                    <div>
-                      <h3 className="font-medium">{project.name}</h3>
-                      <p className="text-sm text-gray-400">
-                        {PROJECT_TYPE_LABELS[project.projectType]} • {project._count.votes} votes
-                      </p>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => handleDuplicateProject(project.id)}
-                    className="btn-secondary text-sm px-3 py-1"
-                    title="Duplicate for second team"
-                  >
-                    Duplicate
-                  </button>
-                </div>
-
-                {project.teams.length > 0 ? (
-                  <div className="space-y-2 mt-3 pt-3 border-t border-white/10">
-                    {project.teams.map((team) => (
-                      <div
-                        key={team.id}
-                        className="flex items-center justify-between p-2 rounded bg-white/5"
-                      >
-                        <div className="flex items-center gap-3">
-                          <span className="text-sm font-medium text-purple-400">
-                            {team.teamName}
-                          </span>
-                          <div className="flex items-center gap-1">
-                            {team.members.map((member) => (
-                              member.user.image ? (
-                                <Image
-                                  key={member.user.id}
-                                  src={member.user.image}
-                                  alt={member.user.name || ''}
-                                  width={20}
-                                  height={20}
-                                  className="rounded-full"
-                                  title={member.user.name || ''}
-                                />
-                              ) : (
-                                <div
-                                  key={member.user.id}
-                                  className="w-5 h-5 rounded-full bg-gradient-to-br from-purple-500/50 to-blue-500/50 flex items-center justify-center text-[10px]"
-                                  title={member.user.name || ''}
-                                >
-                                  {getInitials(member.user.name)}
-                                </div>
-                              )
-                            ))}
-                          </div>
-                        </div>
-                        <button
-                          onClick={() => handleDeleteTeam(team.id)}
-                          className="text-red-400 hover:text-red-300 p-1"
-                        >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                          </svg>
-                        </button>
+            {projects.map((project, index) => {
+              const teamStatus = getProjectTeamStatus(project)
+              const hasCompleteTeam = project.teams.some(team => team.members.length >= TEAM_SIZE)
+              
+              return (
+                <div key={project.id} className="p-4 rounded-lg bg-white/5 border border-white/10">
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="flex items-center gap-3">
+                      <span className="text-lg font-bold text-gray-500">#{index + 1}</span>
+                      <div>
+                        <h3 className="font-medium">{project.name}</h3>
+                        <p className="text-sm text-gray-400">
+                          {PROJECT_TYPE_LABELS[project.projectType]} • {project._count.votes} likes
+                          {project._count.joins > 0 && (
+                            <span className="text-emerald-400"> • {project._count.joins} joining</span>
+                          )}
+                          {' '} • <span className={teamStatus.color}>{teamStatus.label}</span>
+                        </p>
                       </div>
-                    ))}
+                    </div>
+                    {hasCompleteTeam && (
+                      <button
+                        onClick={() => handleDuplicateProject(project.id)}
+                        className="btn-secondary text-sm px-3 py-1"
+                        title="Duplicate to assign another team"
+                      >
+                        + Add Another Team
+                      </button>
+                    )}
                   </div>
-                ) : (
-                  <p className="text-sm text-gray-500 mt-2">No teams assigned yet</p>
-                )}
-              </div>
-            ))}
+
+                  {project.teams.length > 0 ? (
+                    <div className="space-y-2 mt-3 pt-3 border-t border-white/10">
+                      {project.teams.map((team) => (
+                        <div
+                          key={team.id}
+                          className="flex items-center justify-between p-2 rounded bg-white/5"
+                        >
+                          <div className="flex items-center gap-3">
+                            <span className="text-sm font-medium text-purple-400">
+                              {team.teamName}
+                            </span>
+                            <span className={`text-xs ${team.members.length >= TEAM_SIZE ? 'text-emerald-400' : 'text-amber-400'}`}>
+                              ({team.members.length}/{TEAM_SIZE})
+                            </span>
+                            <div className="flex items-center gap-1">
+                              {team.members.map((member) => (
+                                member.user.image ? (
+                                  <Image
+                                    key={member.user.id}
+                                    src={member.user.image}
+                                    alt={member.user.name || ''}
+                                    width={20}
+                                    height={20}
+                                    className="rounded-full"
+                                    title={member.user.name || ''}
+                                  />
+                                ) : (
+                                  <div
+                                    key={member.user.id}
+                                    className="w-5 h-5 rounded-full bg-gradient-to-br from-purple-500/50 to-blue-500/50 flex items-center justify-center text-[10px]"
+                                    title={member.user.name || ''}
+                                  >
+                                    {getInitials(member.user.name)}
+                                  </div>
+                                )
+                              ))}
+                            </div>
+                          </div>
+                          <button
+                            onClick={() => handleDeleteTeam(team.id)}
+                            className="text-red-400 hover:text-red-300 p-1"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-gray-500 mt-2">No teams assigned yet</p>
+                  )}
+                </div>
+              )
+            })}
           </div>
         )}
       </div>

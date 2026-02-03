@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import { prisma } from '@/lib/prisma'
+import { Project, User, Vote, Team, TeamMember, Submission, Vision, ProjectJoin, Reaction, AppState } from '@/models'
 
 // GET single project
 export async function GET(
@@ -12,61 +12,90 @@ export async function GET(
     const { id } = await params
     const session = await getServerSession(authOptions)
 
-    const project = await prisma.project.findUnique({
-      where: { id },
-      include: {
-        creator: {
-          select: {
-            id: true,
-            name: true,
-            image: true,
-          },
+    const project = await Project.findByPk(id, {
+      include: [
+        {
+          model: User,
+          as: 'creator',
+          attributes: ['id', 'name', 'image'],
         },
-        votes: {
-          include: {
-            user: {
-              select: {
-                id: true,
-                name: true,
-                image: true,
-              },
+        {
+          model: Vision,
+          as: 'vision',
+          attributes: ['id', 'title', 'area'],
+        },
+        {
+          model: Vote,
+          as: 'votes',
+          include: [
+            {
+              model: User,
+              as: 'user',
+              attributes: ['id', 'name', 'image'],
             },
-          },
+          ],
         },
-        teams: {
-          include: {
-            members: {
-              include: {
-                user: {
-                  select: {
-                    id: true,
-                    name: true,
-                    image: true,
-                  },
+        {
+          model: ProjectJoin,
+          as: 'joins',
+          include: [
+            {
+              model: User,
+              as: 'user',
+              attributes: ['id', 'name', 'image'],
+            },
+          ],
+        },
+        {
+          model: Team,
+          as: 'teams',
+          include: [
+            {
+              model: TeamMember,
+              as: 'members',
+              include: [
+                {
+                  model: User,
+                  as: 'user',
+                  attributes: ['id', 'name', 'image'],
                 },
-              },
+              ],
             },
-            submission: true,
-          },
+            {
+              model: Submission,
+              as: 'submission',
+            },
+          ],
         },
-        reactions: true,
-        _count: {
-          select: {
-            votes: true,
-            reactions: true,
-          },
+        {
+          model: Reaction,
+          as: 'reactions',
         },
-      },
+      ],
     })
 
     if (!project) {
       return NextResponse.json({ error: 'Project not found' }, { status: 404 })
     }
 
+    const projectData = project.toJSON() as typeof project & {
+      votes: { userId: string }[]
+      joins: { userId: string }[]
+      reactions: unknown[]
+    }
+
     return NextResponse.json({
-      ...project,
+      ...projectData,
+      _count: {
+        votes: projectData.votes?.length || 0,
+        reactions: projectData.reactions?.length || 0,
+        joins: projectData.joins?.length || 0,
+      },
       hasVoted: session?.user?.id
-        ? project.votes.some((vote) => vote.userId === session.user.id)
+        ? projectData.votes?.some((vote) => vote.userId === session.user.id)
+        : false,
+      hasJoined: session?.user?.id
+        ? projectData.joins?.some((join) => join.userId === session.user.id)
         : false,
     })
   } catch (error) {
@@ -88,9 +117,7 @@ export async function PUT(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const project = await prisma.project.findUnique({
-      where: { id },
-    })
+    const project = await Project.findByPk(id)
 
     if (!project) {
       return NextResponse.json({ error: 'Project not found' }, { status: 404 })
@@ -102,32 +129,28 @@ export async function PUT(
     }
 
     // Check app state for what can be edited
-    const appState = await prisma.appState.findUnique({
-      where: { id: 'singleton' },
-    })
+    const appState = await AppState.findByPk('singleton')
 
     const body = await request.json()
 
     // During sprint, only allow editing slack channel and doc link
     if (appState?.stage === 'EXECUTING_SPRINT' && !appState.testMode) {
       const { slackChannel, docLink } = body
-      const updatedProject = await prisma.project.update({
-        where: { id },
-        data: {
-          ...(slackChannel && { slackChannel }),
-          ...(docLink !== undefined && { docLink }),
-        },
-        include: {
-          creator: {
-            select: {
-              id: true,
-              name: true,
-              image: true,
-            },
-          },
-        },
+      await project.update({
+        ...(slackChannel && { slackChannel }),
+        ...(docLink !== undefined && { docLink }),
       })
-      return NextResponse.json(updatedProject)
+      
+      const updatedProject = await Project.findByPk(id, {
+        include: [
+          {
+            model: User,
+            as: 'creator',
+            attributes: ['id', 'name', 'image'],
+          },
+        ],
+      })
+      return NextResponse.json(updatedProject?.toJSON())
     }
 
     // During sprint over, nothing is editable
@@ -139,41 +162,42 @@ export async function PUT(
     }
 
     // Full edit during submissions phase
-    const { name, description, pitchVideoUrl, docLink, projectType, slackChannel } = body
+    const { name, description, pitchVideoUrl, docLink, projectType, slackChannel, businessRationale, visionId, department } = body
 
-    const updatedProject = await prisma.project.update({
-      where: { id },
-      data: {
-        ...(name && { name }),
-        ...(description && { description }),
-        ...(pitchVideoUrl !== undefined && { pitchVideoUrl }),
-        ...(docLink !== undefined && { docLink }),
-        ...(projectType && { projectType }),
-        ...(slackChannel && { slackChannel }),
-      },
-      include: {
-        creator: {
-          select: {
-            id: true,
-            name: true,
-            image: true,
-          },
-        },
-        votes: {
-          include: {
-            user: {
-              select: {
-                id: true,
-                name: true,
-                image: true,
-              },
-            },
-          },
-        },
-      },
+    await project.update({
+      ...(name && { name }),
+      ...(description && { description }),
+      ...(pitchVideoUrl !== undefined && { pitchVideoUrl }),
+      ...(docLink !== undefined && { docLink }),
+      ...(projectType && { projectType }),
+      ...(slackChannel && { slackChannel }),
+      ...(businessRationale !== undefined && { businessRationale }),
+      ...(visionId !== undefined && { visionId }),
+      ...(department !== undefined && { department }),
     })
 
-    return NextResponse.json(updatedProject)
+    const updatedProject = await Project.findByPk(id, {
+      include: [
+        {
+          model: User,
+          as: 'creator',
+          attributes: ['id', 'name', 'image'],
+        },
+        {
+          model: Vote,
+          as: 'votes',
+          include: [
+            {
+              model: User,
+              as: 'user',
+              attributes: ['id', 'name', 'image'],
+            },
+          ],
+        },
+      ],
+    })
+
+    return NextResponse.json(updatedProject?.toJSON())
   } catch (error) {
     console.error('Error updating project:', error)
     return NextResponse.json({ error: 'Failed to update project' }, { status: 500 })
@@ -193,9 +217,7 @@ export async function DELETE(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const project = await prisma.project.findUnique({
-      where: { id },
-    })
+    const project = await Project.findByPk(id)
 
     if (!project) {
       return NextResponse.json({ error: 'Project not found' }, { status: 404 })
@@ -207,9 +229,7 @@ export async function DELETE(
     }
 
     // Check app state
-    const appState = await prisma.appState.findUnique({
-      where: { id: 'singleton' },
-    })
+    const appState = await AppState.findByPk('singleton')
 
     if (appState && appState.stage !== 'RECEIVING_SUBMISSIONS' && !appState.testMode) {
       return NextResponse.json(
@@ -218,9 +238,7 @@ export async function DELETE(
       )
     }
 
-    await prisma.project.delete({
-      where: { id },
-    })
+    await project.destroy()
 
     return NextResponse.json({ success: true })
   } catch (error) {

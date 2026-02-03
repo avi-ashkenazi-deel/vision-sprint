@@ -7,6 +7,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { useAppState } from '@/components/providers/AppStateProvider'
 import { Timer } from '@/components/Timer'
+import { VideoEmbed } from '@/components/VideoEmbed'
 import { PROJECT_TYPE_LABELS, PROJECT_TYPE_COLORS, type ProjectType } from '@/types'
 import { getInitials } from '@/lib/utils'
 
@@ -181,18 +182,20 @@ export default function SprintPage() {
                     </div>
 
                     {/* Links */}
-                    <div className="flex items-center gap-4">
-                      <a
-                        href={`https://slack.com/app_redirect?channel=${team.project.slackChannel}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center gap-2 text-sm text-purple-400 hover:text-purple-300"
-                      >
-                        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
-                          <path d="M5.042 15.165a2.528 2.528 0 0 1-2.52 2.523A2.528 2.528 0 0 1 0 15.165a2.527 2.527 0 0 1 2.522-2.52h2.52v2.52zM6.313 15.165a2.527 2.527 0 0 1 2.521-2.52 2.527 2.527 0 0 1 2.521 2.52v6.313A2.528 2.528 0 0 1 8.834 24a2.528 2.528 0 0 1-2.521-2.522v-6.313z"/>
-                        </svg>
-                        #{team.project.slackChannel}
-                      </a>
+                    <div className="flex items-center gap-4 flex-wrap">
+                      {team.project.slackChannel && (
+                        <a
+                          href={`https://slack.com/app_redirect?channel=${team.project.slackChannel}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-2 text-sm text-purple-400 hover:text-purple-300"
+                        >
+                          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M5.042 15.165a2.528 2.528 0 0 1-2.52 2.523A2.528 2.528 0 0 1 0 15.165a2.527 2.527 0 0 1 2.522-2.52h2.52v2.52zM6.313 15.165a2.527 2.527 0 0 1 2.521-2.52 2.527 2.527 0 0 1 2.521 2.52v6.313A2.528 2.528 0 0 1 8.834 24a2.528 2.528 0 0 1-2.521-2.522v-6.313z"/>
+                          </svg>
+                          Slack Channel
+                        </a>
+                      )}
                       {team.project.docLink && (
                         <a
                           href={team.project.docLink}
@@ -203,7 +206,7 @@ export default function SprintPage() {
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                           </svg>
-                          Documents
+                          Project Documents
                         </a>
                       )}
                       <Link
@@ -213,7 +216,7 @@ export default function SprintPage() {
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
                         </svg>
-                        Edit Links
+                        Edit Project
                       </Link>
                     </div>
                   </div>
@@ -223,48 +226,25 @@ export default function SprintPage() {
                     <div className="p-4 rounded-lg bg-white/5 border border-white/10">
                       <h4 className="font-medium mb-3">Video Submission</h4>
                       
-                      {team.submission ? (
-                        <div>
-                          <div className="flex items-center gap-2 text-emerald-400 mb-3">
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                            </svg>
-                            <span className="text-sm">Video submitted!</span>
-                          </div>
-                          <a
-                            href={team.submission.videoUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-sm text-purple-400 hover:text-purple-300 break-all"
-                          >
-                            {team.submission.videoUrl}
-                          </a>
-                          <button
-                            onClick={() => {
-                              setSubmittingTeamId(team.id)
-                              setVideoUrl(team.submission?.videoUrl || '')
-                            }}
-                            className="mt-3 text-sm text-gray-400 hover:text-white"
-                          >
-                            Update video
-                          </button>
-                        </div>
-                      ) : submittingTeamId === team.id ? (
+                      {submittingTeamId === team.id ? (
                         <div className="space-y-3">
                           <input
                             type="url"
                             value={videoUrl}
                             onChange={(e) => setVideoUrl(e.target.value)}
-                            placeholder="Google Drive video link"
+                            placeholder="YouTube or Google Drive link"
                             className="input-field text-sm"
                           />
+                          <p className="text-xs text-gray-500 mt-1">
+                            Supports YouTube, Google Drive, Loom, Vimeo
+                          </p>
                           <div className="flex gap-2">
                             <button
                               onClick={() => handleSubmitVideo(team.id)}
                               disabled={!videoUrl || submitting}
                               className="btn-primary text-sm flex-1"
                             >
-                              {submitting ? 'Submitting...' : 'Submit'}
+                              {submitting ? 'Submitting...' : team.submission ? 'Update' : 'Submit'}
                             </button>
                             <button
                               onClick={() => {
@@ -276,6 +256,33 @@ export default function SprintPage() {
                               Cancel
                             </button>
                           </div>
+                        </div>
+                      ) : team.submission ? (
+                        <div>
+                          <div className="flex items-center justify-between mb-3">
+                            <div className="flex items-center gap-2 text-emerald-400">
+                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                              </svg>
+                              <span className="text-sm">Video submitted!</span>
+                            </div>
+                            <button
+                              onClick={() => {
+                                setSubmittingTeamId(team.id)
+                                setVideoUrl(team.submission?.videoUrl || '')
+                              }}
+                              className="flex items-center gap-1 text-sm text-purple-400 hover:text-purple-300"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                              </svg>
+                              Edit
+                            </button>
+                          </div>
+                          <VideoEmbed 
+                            url={team.submission.videoUrl} 
+                            title={`${team.teamName} submission`}
+                          />
                         </div>
                       ) : (
                         <button

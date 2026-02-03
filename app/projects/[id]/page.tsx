@@ -6,8 +6,16 @@ import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import Link from 'next/link'
 import { useAppState } from '@/components/providers/AppStateProvider'
-import { PROJECT_TYPE_LABELS, PROJECT_TYPE_COLORS, type ProjectType } from '@/types'
+import { VideoEmbed } from '@/components/VideoEmbed'
+import { PROJECT_TYPE_LABELS, PROJECT_TYPE_COLORS, VISION_AREA_COLORS, type ProjectType } from '@/types'
 import { formatDate, getInitials } from '@/lib/utils'
+import ReactMarkdown from 'react-markdown'
+
+interface ProjectListItem {
+  id: string
+  name: string
+  _count: { votes: number }
+}
 
 interface Project {
   id: string
@@ -17,12 +25,25 @@ interface Project {
   docLink: string | null
   projectType: ProjectType
   slackChannel: string
+  businessRationale: string | null
+  vision: {
+    id: string
+    title: string
+    area: string
+  } | null
   creator: {
     id: string
     name: string | null
     image: string | null
   }
   votes: {
+    user: {
+      id: string
+      name: string | null
+      image: string | null
+    }
+  }[]
+  joins: {
     user: {
       id: string
       name: string | null
@@ -46,8 +67,10 @@ interface Project {
   }[]
   _count: {
     votes: number
+    joins: number
   }
   hasVoted: boolean
+  hasJoined: boolean
   createdAt: string
   updatedAt: string
 }
@@ -62,12 +85,14 @@ export default function ProjectDetailPage({
   const router = useRouter()
   const { appState } = useAppState()
   const [project, setProject] = useState<Project | null>(null)
+  const [allProjects, setAllProjects] = useState<ProjectListItem[]>([])
   const [loading, setLoading] = useState(true)
   const [deleting, setDeleting] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
 
   useEffect(() => {
     fetchProject()
+    fetchAllProjects()
   }, [id])
 
   const fetchProject = async () => {
@@ -85,6 +110,27 @@ export default function ProjectDetailPage({
       setLoading(false)
     }
   }
+
+  const fetchAllProjects = async () => {
+    try {
+      const res = await fetch('/api/projects')
+      if (res.ok) {
+        const data = await res.json()
+        // Sort by votes descending
+        const sorted = data.sort((a: ProjectListItem, b: ProjectListItem) => 
+          b._count.votes - a._count.votes
+        )
+        setAllProjects(sorted)
+      }
+    } catch (error) {
+      console.error('Failed to fetch projects:', error)
+    }
+  }
+
+  // Find current index and prev/next projects
+  const currentIndex = allProjects.findIndex(p => p.id === id)
+  const prevProject = currentIndex > 0 ? allProjects[currentIndex - 1] : null
+  const nextProject = currentIndex < allProjects.length - 1 ? allProjects[currentIndex + 1] : null
 
   const handleVote = async () => {
     if (!session) return
@@ -104,6 +150,19 @@ export default function ProjectDetailPage({
     
     const res = await fetch(`/api/votes?projectId=${id}`, {
       method: 'DELETE',
+    })
+    if (res.ok) {
+      fetchProject()
+    }
+  }
+
+  const handleJoin = async () => {
+    if (!session) return
+    
+    const res = await fetch('/api/joins', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ projectId: id }),
     })
     if (res.ok) {
       fetchProject()
@@ -162,16 +221,59 @@ export default function ProjectDetailPage({
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-8">
-      {/* Back button */}
-      <Link
-        href="/"
-        className="inline-flex items-center gap-2 text-gray-400 hover:text-white mb-6 transition-colors"
-      >
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-        </svg>
-        Back to projects
-      </Link>
+      {/* Navigation */}
+      <div className="flex items-center justify-between mb-6">
+        <Link
+          href="/"
+          className="inline-flex items-center gap-2 text-gray-400 hover:text-white transition-colors"
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+          </svg>
+          Back to projects
+        </Link>
+
+        {/* Prev/Next navigation */}
+        {allProjects.length > 1 && (
+          <div className="flex items-center gap-2">
+            {prevProject ? (
+              <Link
+                href={`/projects/${prevProject.id}`}
+                className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white/5 hover:bg-white/10 transition-colors text-sm"
+                title={prevProject.name}
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                </svg>
+                <span className="hidden sm:inline max-w-[120px] truncate">{prevProject.name}</span>
+                <span className="sm:hidden">Prev</span>
+              </Link>
+            ) : (
+              <div className="px-3 py-2 text-sm text-gray-600">← Prev</div>
+            )}
+            
+            <span className="text-xs text-gray-500 px-2">
+              {currentIndex + 1} / {allProjects.length}
+            </span>
+
+            {nextProject ? (
+              <Link
+                href={`/projects/${nextProject.id}`}
+                className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white/5 hover:bg-white/10 transition-colors text-sm"
+                title={nextProject.name}
+              >
+                <span className="hidden sm:inline max-w-[120px] truncate">{nextProject.name}</span>
+                <span className="sm:hidden">Next</span>
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </Link>
+            ) : (
+              <div className="px-3 py-2 text-sm text-gray-600">Next →</div>
+            )}
+          </div>
+        )}
+      </div>
 
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-8">
@@ -184,25 +286,53 @@ export default function ProjectDetailPage({
 
         <div className="flex items-center gap-3">
           {session && isSubmissionsOpen && (
-            <button
-              onClick={project.hasVoted ? handleUnvote : handleVote}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all ${
-                project.hasVoted
-                  ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30'
-                  : 'bg-white/5 text-gray-300 border border-white/10 hover:bg-white/10'
-              }`}
-            >
-              <svg
-                className={`w-5 h-5 ${project.hasVoted ? 'fill-purple-400' : ''}`}
-                fill={project.hasVoted ? 'currentColor' : 'none'}
-                stroke="currentColor"
-                viewBox="0 0 24 24"
+            <>
+              {/* Like button */}
+              <button
+                onClick={project.hasVoted ? handleUnvote : handleVote}
+                className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl font-medium transition-all ${
+                  project.hasVoted
+                    ? 'bg-pink-500/20 text-pink-300 border border-pink-500/30'
+                    : 'bg-white/5 text-gray-300 border border-white/10 hover:bg-pink-500/10 hover:border-pink-500/30 hover:text-pink-300'
+                }`}
               >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
-              </svg>
-              {project.hasVoted ? 'Voted' : 'Vote'}
-              <span className="text-sm opacity-70">({project._count.votes})</span>
-            </button>
+                <svg 
+                  className={`w-5 h-5 ${project.hasVoted ? 'fill-pink-400' : ''}`} 
+                  fill={project.hasVoted ? 'currentColor' : 'none'} 
+                  stroke="currentColor" 
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                </svg>
+                <span>{project.hasVoted ? 'Liked' : 'Like'}</span>
+                <span className="text-sm opacity-70">({project._count.votes})</span>
+              </button>
+
+              {/* Join button */}
+              <button
+                onClick={handleJoin}
+                className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl font-medium transition-all ${
+                  project.hasJoined
+                    ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                    : 'bg-white/5 text-gray-300 border border-white/10 hover:bg-emerald-500/10 hover:border-emerald-500/30 hover:text-emerald-300'
+                }`}
+              >
+                <svg 
+                  className="w-5 h-5" 
+                  fill="none" 
+                  stroke="currentColor" 
+                  viewBox="0 0 24 24"
+                >
+                  {project.hasJoined ? (
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  ) : (
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+                  )}
+                </svg>
+                <span>{project.hasJoined ? 'Joined' : 'Join'}</span>
+                <span className="text-sm opacity-70">({project._count.joins})</span>
+              </button>
+            </>
           )}
 
           {canEdit && (
@@ -236,25 +366,16 @@ export default function ProjectDetailPage({
           {/* Description */}
           <div className="glass-card p-6">
             <h2 className="text-lg font-semibold mb-4">Description</h2>
-            <p className="text-gray-300 whitespace-pre-wrap">{project.description}</p>
+            <div className="prose max-w-none">
+              <ReactMarkdown>{project.description}</ReactMarkdown>
+            </div>
           </div>
 
           {/* Pitch video */}
           {project.pitchVideoUrl && (
             <div className="glass-card p-6">
               <h2 className="text-lg font-semibold mb-4">Pitch Video</h2>
-              <a
-                href={project.pitchVideoUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-2 text-purple-400 hover:text-purple-300 transition-colors"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                Watch Pitch Video
-              </a>
+              <VideoEmbed url={project.pitchVideoUrl} title={`${project.name} - Pitch`} />
             </div>
           )}
 
@@ -290,18 +411,12 @@ export default function ProjectDetailPage({
                       ))}
                     </div>
                     {team.submission && (
-                      <div className="mt-3 pt-3 border-t border-white/10">
-                        <a
-                          href={team.submission.videoUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-sm text-purple-400 hover:text-purple-300 flex items-center gap-2"
-                        >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                          </svg>
-                          View Submission Video
-                        </a>
+                      <div className="mt-4 pt-4 border-t border-white/10">
+                        <p className="text-sm text-gray-400 mb-3">Submission Video</p>
+                        <VideoEmbed 
+                          url={team.submission.videoUrl} 
+                          title={`${team.teamName} - Submission`} 
+                        />
                       </div>
                     )}
                   </div>
@@ -334,6 +449,30 @@ export default function ProjectDetailPage({
             </div>
           </div>
 
+          {/* Related Vision */}
+          {project.vision && (
+            <div className="glass-card p-6">
+              <h2 className="text-sm font-medium text-gray-400 mb-3">Related Vision</h2>
+              <Link
+                href="/visions"
+                className="block p-3 rounded-lg bg-white/5 border border-white/10 hover:border-purple-500/30 transition-colors"
+              >
+                <span className={`badge text-xs mb-2 ${VISION_AREA_COLORS[project.vision.area] || VISION_AREA_COLORS['Other']}`}>
+                  {project.vision.area}
+                </span>
+                <p className="font-medium text-white">{project.vision.title}</p>
+              </Link>
+            </div>
+          )}
+
+          {/* Business Rationale */}
+          {project.businessRationale && (
+            <div className="glass-card p-6">
+              <h2 className="text-sm font-medium text-gray-400 mb-3">Business Rationale</h2>
+              <p className="text-gray-300 text-sm whitespace-pre-wrap">{project.businessRationale}</p>
+            </div>
+          )}
+
           {/* Links */}
           <div className="glass-card p-6">
             <h2 className="text-sm font-medium text-gray-400 mb-3">Links</h2>
@@ -365,10 +504,45 @@ export default function ProjectDetailPage({
             </div>
           </div>
 
-          {/* Voters */}
+          {/* People who want to join */}
           <div className="glass-card p-6">
             <h2 className="text-sm font-medium text-gray-400 mb-3">
-              Votes ({project._count.votes})
+              <span className="text-emerald-400">Want to Join</span> ({project._count.joins})
+            </h2>
+            {project.joins.length > 0 ? (
+              <div className="flex flex-wrap gap-2">
+                {project.joins.map((join) => (
+                  <div
+                    key={join.user.id}
+                    className="flex items-center gap-2 px-2 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20"
+                    title={join.user.name || undefined}
+                  >
+                    {join.user.image ? (
+                      <Image
+                        src={join.user.image}
+                        alt={join.user.name || ''}
+                        width={20}
+                        height={20}
+                        className="rounded-full"
+                      />
+                    ) : (
+                      <div className="w-5 h-5 rounded-full bg-gradient-to-br from-emerald-500/50 to-teal-500/50 flex items-center justify-center text-[10px]">
+                        {getInitials(join.user.name)}
+                      </div>
+                    )}
+                    <span className="text-sm text-emerald-300">{join.user.name}</span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-gray-500 text-sm">No one has joined yet</p>
+            )}
+          </div>
+
+          {/* Likes */}
+          <div className="glass-card p-6">
+            <h2 className="text-sm font-medium text-gray-400 mb-3">
+              <span className="text-pink-400">Likes</span> ({project._count.votes})
             </h2>
             {project.votes.length > 0 ? (
               <div className="flex flex-wrap gap-2">
@@ -396,7 +570,7 @@ export default function ProjectDetailPage({
                 ))}
               </div>
             ) : (
-              <p className="text-gray-500 text-sm">No votes yet</p>
+              <p className="text-gray-500 text-sm">No likes yet</p>
             )}
           </div>
 

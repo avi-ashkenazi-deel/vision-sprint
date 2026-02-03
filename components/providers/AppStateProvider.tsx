@@ -1,7 +1,7 @@
 'use client'
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
-import type { AppState } from '@prisma/client'
+import type { AppState } from '@/types'
 
 interface AppStateContextType {
   appState: AppState | null

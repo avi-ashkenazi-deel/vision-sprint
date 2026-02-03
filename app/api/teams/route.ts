@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import { prisma } from '@/lib/prisma'
+import { Project, Team, TeamMember, User, Submission } from '@/models'
 
 // POST create team (admin only)
 export async function POST(request: Request) {
@@ -23,9 +23,8 @@ export async function POST(request: Request) {
     }
 
     // Check if project exists
-    const project = await prisma.project.findUnique({
-      where: { id: projectId },
-      include: { teams: true },
+    const project = await Project.findByPk(projectId, {
+      include: [{ model: Team, as: 'teams' }],
     })
 
     if (!project) {
@@ -33,36 +32,42 @@ export async function POST(request: Request) {
     }
 
     // Determine team number
-    const teamNumber = project.teams.length + 1
+    const projectData = project.toJSON() as typeof project & { teams: unknown[] }
+    const teamNumber = (projectData.teams?.length || 0) + 1
 
-    // Create team with members
-    const team = await prisma.team.create({
-      data: {
-        projectId,
-        teamName,
-        teamNumber,
-        members: {
-          create: memberIds.map((userId: string) => ({
-            userId,
-          })),
-        },
-      },
-      include: {
-        members: {
-          include: {
-            user: {
-              select: {
-                id: true,
-                name: true,
-                image: true,
-              },
-            },
-          },
-        },
-      },
+    // Create team
+    const team = await Team.create({
+      projectId,
+      teamName,
+      teamNumber,
     })
 
-    return NextResponse.json(team, { status: 201 })
+    // Create team members
+    for (const userId of memberIds) {
+      await TeamMember.create({
+        teamId: team.id,
+        userId,
+      })
+    }
+
+    // Fetch team with members
+    const teamWithMembers = await Team.findByPk(team.id, {
+      include: [
+        {
+          model: TeamMember,
+          as: 'members',
+          include: [
+            {
+              model: User,
+              as: 'user',
+              attributes: ['id', 'name', 'image'],
+            },
+          ],
+        },
+      ],
+    })
+
+    return NextResponse.json(teamWithMembers?.toJSON(), { status: 201 })
   } catch (error) {
     console.error('Error creating team:', error)
     return NextResponse.json({ error: 'Failed to create team' }, { status: 500 })
@@ -72,32 +77,33 @@ export async function POST(request: Request) {
 // GET all teams
 export async function GET() {
   try {
-    const teams = await prisma.team.findMany({
-      include: {
-        project: {
-          select: {
-            id: true,
-            name: true,
-            projectType: true,
-          },
+    const teams = await Team.findAll({
+      include: [
+        {
+          model: Project,
+          as: 'project',
+          attributes: ['id', 'name', 'projectType'],
         },
-        members: {
-          include: {
-            user: {
-              select: {
-                id: true,
-                name: true,
-                image: true,
-              },
+        {
+          model: TeamMember,
+          as: 'members',
+          include: [
+            {
+              model: User,
+              as: 'user',
+              attributes: ['id', 'name', 'image'],
             },
-          },
+          ],
         },
-        submission: true,
-      },
-      orderBy: { createdAt: 'desc' },
+        {
+          model: Submission,
+          as: 'submission',
+        },
+      ],
+      order: [['createdAt', 'DESC']],
     })
 
-    return NextResponse.json(teams)
+    return NextResponse.json(teams.map((t) => t.toJSON()))
   } catch (error) {
     console.error('Error fetching teams:', error)
     return NextResponse.json({ error: 'Failed to fetch teams' }, { status: 500 })

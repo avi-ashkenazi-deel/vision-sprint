@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import { prisma } from '@/lib/prisma'
+import { Team, Project, TeamMember, User, Submission } from '@/models'
 
 // GET single team
 export async function GET(
@@ -11,30 +11,35 @@ export async function GET(
   try {
     const { id } = await params
 
-    const team = await prisma.team.findUnique({
-      where: { id },
-      include: {
-        project: true,
-        members: {
-          include: {
-            user: {
-              select: {
-                id: true,
-                name: true,
-                image: true,
-              },
-            },
-          },
+    const team = await Team.findByPk(id, {
+      include: [
+        {
+          model: Project,
+          as: 'project',
         },
-        submission: true,
-      },
+        {
+          model: TeamMember,
+          as: 'members',
+          include: [
+            {
+              model: User,
+              as: 'user',
+              attributes: ['id', 'name', 'image'],
+            },
+          ],
+        },
+        {
+          model: Submission,
+          as: 'submission',
+        },
+      ],
     })
 
     if (!team) {
       return NextResponse.json({ error: 'Team not found' }, { status: 404 })
     }
 
-    return NextResponse.json(team)
+    return NextResponse.json(team.toJSON())
   } catch (error) {
     console.error('Error fetching team:', error)
     return NextResponse.json({ error: 'Failed to fetch team' }, { status: 500 })
@@ -54,9 +59,12 @@ export async function DELETE(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    await prisma.team.delete({
-      where: { id },
-    })
+    const team = await Team.findByPk(id)
+    if (!team) {
+      return NextResponse.json({ error: 'Team not found' }, { status: 404 })
+    }
+
+    await team.destroy()
 
     return NextResponse.json({ success: true })
   } catch (error) {
