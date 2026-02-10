@@ -6,10 +6,13 @@ import { User } from '../models'
 
 // Check if Google OAuth is configured
 const isGoogleConfigured = 
-  process.env.GOOGLE_CLIENT_ID && 
+  !!process.env.GOOGLE_CLIENT_ID && 
   process.env.GOOGLE_CLIENT_ID !== 'your-google-client-id' &&
-  process.env.GOOGLE_CLIENT_SECRET &&
+  !!process.env.GOOGLE_CLIENT_SECRET &&
   process.env.GOOGLE_CLIENT_SECRET !== 'your-google-client-secret'
+
+console.log('[Auth] Google configured:', isGoogleConfigured)
+console.log('[Auth] NODE_ENV:', process.env.NODE_ENV)
 
 // Only enable dev login in development (not production)
 const isProduction = process.env.NODE_ENV === 'production'
