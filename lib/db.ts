@@ -1,4 +1,5 @@
 import { Sequelize } from 'sequelize'
+import pg from 'pg'
 
 const databaseUrl = process.env.DATABASE_URL
 
@@ -11,8 +12,10 @@ const isSupabasePooler = databaseUrl.includes('pooler.supabase.com')
 const isProduction = process.env.NODE_ENV === 'production'
 
 // Parse the connection string to extract components for Sequelize
+// Pass pg module directly via dialectModule to avoid dynamic require() issues on Vercel
 const sequelize = new Sequelize(databaseUrl, {
   dialect: 'postgres',
+  dialectModule: pg,
   logging: isProduction ? false : console.log,
   pool: {
     max: 5,
