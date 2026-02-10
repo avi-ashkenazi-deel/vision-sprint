@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "next build --webpack",
     "start": "next start",
     "lint": "eslint",
     "db:sync": "ts-node --compiler-options '{\"module\":\"CommonJS\",\"esModuleInterop\":true}' scripts/sync-db.ts",
