@@ -100,29 +100,46 @@ export default function VisionsPage() {
     <div className="min-h-screen pt-20 pb-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-white mb-2">
-            Vision Documents
-          </h1>
-          <p className="text-gray-400 max-w-2xl">
-            Browse company visions to inspire your project ideas. Like the visions
-            that are relevant to your vertical to help suggesters understand what matters most.
-          </p>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
+          <div>
+            <h1 className="text-3xl font-bold text-white mb-2">
+              Vision Documents
+            </h1>
+            <p className="text-gray-400 max-w-2xl">
+              Browse company visions to inspire your project ideas. Like the visions
+              that are relevant to your vertical to help suggesters understand what matters most.
+            </p>
+          </div>
+
+          {session?.user?.isAdmin && (
+            <button
+              onClick={() => setShowAddForm(true)}
+              className="btn-primary whitespace-nowrap"
+            >
+              Add Vision
+            </button>
+          )}
         </div>
 
-        {/* Add Vision Button (Admin only) */}
-        {session?.user?.isAdmin && (
-          <div className="mb-6">
-            <button
-              onClick={() => setShowAddForm(!showAddForm)}
-              className="btn-primary"
-            >
-              {showAddForm ? 'Cancel' : '+ Add Vision'}
-            </button>
+        {/* Add Vision Modal */}
+        {showAddForm && (
+          <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
+            <div className="glass-card p-6 w-full max-w-lg relative">
+              <button
+                onClick={() => {
+                  setShowAddForm(false)
+                  setSubmitError('')
+                }}
+                className="absolute top-4 right-4 text-gray-400 hover:text-white transition-colors"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
 
-            {/* Add Vision Form */}
-            {showAddForm && (
-              <form onSubmit={handleSubmitVision} className="mt-4 glass-card p-6 space-y-4">
+              <h2 className="text-lg font-semibold text-white mb-4">Add Vision</h2>
+
+              <form onSubmit={handleSubmitVision} className="space-y-4">
                 {submitError && (
                   <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-sm">
                     {submitError}
@@ -143,53 +160,63 @@ export default function VisionsPage() {
                   />
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-2">
-                      Vertical / Team *
-                    </label>
-                    <input
-                      type="text"
-                      list="area-options"
-                      value={newVision.area}
-                      onChange={(e) => setNewVision({ ...newVision, area: e.target.value })}
-                      required
-                      placeholder="e.g., Growth, Engineering, Sales..."
-                      className="input-field"
-                    />
-                    <datalist id="area-options">
-                      {existingAreas.map((area) => (
-                        <option key={area} value={area} />
-                      ))}
-                    </datalist>
-                    <p className="text-xs text-gray-500 mt-1">
-                      Select an existing vertical or type a new one.
-                    </p>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-2">
-                      Document URL
-                    </label>
-                    <input
-                      type="url"
-                      value={newVision.docUrl}
-                      onChange={(e) => setNewVision({ ...newVision, docUrl: e.target.value })}
-                      placeholder="https://docs.google.com/..."
-                      className="input-field"
-                    />
-                  </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                    Vertical / Team *
+                  </label>
+                  <input
+                    type="text"
+                    list="area-options"
+                    value={newVision.area}
+                    onChange={(e) => setNewVision({ ...newVision, area: e.target.value })}
+                    required
+                    placeholder="e.g., Growth, Engineering, Sales..."
+                    className="input-field"
+                  />
+                  <datalist id="area-options">
+                    {existingAreas.map((area) => (
+                      <option key={area} value={area} />
+                    ))}
+                  </datalist>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Select an existing vertical or type a new one.
+                  </p>
                 </div>
 
-                <button
-                  type="submit"
-                  disabled={submitting}
-                  className="btn-primary disabled:opacity-50"
-                >
-                  {submitting ? 'Creating...' : 'Create Vision'}
-                </button>
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                    Document URL
+                  </label>
+                  <input
+                    type="url"
+                    value={newVision.docUrl}
+                    onChange={(e) => setNewVision({ ...newVision, docUrl: e.target.value })}
+                    placeholder="https://docs.google.com/..."
+                    className="input-field"
+                  />
+                </div>
+
+                <div className="flex items-center gap-3 pt-2">
+                  <button
+                    type="submit"
+                    disabled={submitting}
+                    className="btn-primary disabled:opacity-50"
+                  >
+                    {submitting ? 'Creating...' : 'Create Vision'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowAddForm(false)
+                      setSubmitError('')
+                    }}
+                    className="btn-secondary"
+                  >
+                    Cancel
+                  </button>
+                </div>
               </form>
-            )}
+            </div>
           </div>
         )}
 
@@ -223,12 +250,12 @@ export default function VisionsPage() {
           </div>
 
           {/* Sort */}
-          <div className="ml-auto flex items-center gap-2">
-            <span className="text-sm text-gray-400">Sort by:</span>
+          <div className="ml-auto flex items-center gap-2 flex-shrink-0">
+            <span className="text-sm text-gray-400 whitespace-nowrap">Sort by:</span>
             <select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value as SortOption)}
-              className="input-field py-1 px-2 text-sm"
+              className="input-field py-1.5 px-3 text-sm w-40"
             >
               <option value="likes">Most Liked</option>
               <option value="recent">Most Recent</option>
@@ -276,41 +303,6 @@ export default function VisionsPage() {
           </div>
         )}
 
-        {/* Info section */}
-        <div className="mt-12 glass-card p-6">
-          <h2 className="text-lg font-semibold text-white mb-3">
-            How to use Vision Documents
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-sm text-gray-400">
-            <div>
-              <div className="w-10 h-10 rounded-lg bg-pink-500/20 flex items-center justify-center mb-3">
-                <svg className="w-5 h-5 text-pink-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-                </svg>
-              </div>
-              <h3 className="font-medium text-white mb-1">Like relevant visions</h3>
-              <p>Click the heart to like visions that are important to your area. This helps project suggesters understand priorities.</p>
-            </div>
-            <div>
-              <div className="w-10 h-10 rounded-lg bg-purple-500/20 flex items-center justify-center mb-3">
-                <svg className="w-5 h-5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                </svg>
-              </div>
-              <h3 className="font-medium text-white mb-1">Get inspired</h3>
-              <p>Browse visions to find ideas that align with company goals. Use them as inspiration for your project submissions.</p>
-            </div>
-            <div>
-              <div className="w-10 h-10 rounded-lg bg-blue-500/20 flex items-center justify-center mb-3">
-                <svg className="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
-                </svg>
-              </div>
-              <h3 className="font-medium text-white mb-1">Link your project</h3>
-              <p>When creating a project, select a related vision to show strategic alignment and strengthen your proposal.</p>
-            </div>
-          </div>
-        </div>
       </div>
     </div>
   )
