@@ -4,14 +4,14 @@ import { useEffect, useRef } from 'react'
 import * as THREE from 'three'
 
 // ---- Cloth simulation parameters ----
-const CLOTH_W = 60        // segments width
-const CLOTH_H = 40        // segments height  
-const CLOTH_SIZE_X = 30   // world units width
-const CLOTH_SIZE_Y = 20   // world units height
+const CLOTH_W = 50        // segments width
+const CLOTH_H = 50        // segments height  
+const CLOTH_SIZE_X = 50   // world units width — fills viewport
+const CLOTH_SIZE_Y = 40   // world units height
 const DAMPING = 0.97
-const GRAVITY = new THREE.Vector3(0, -0.08, 0)
-const TIMESTEP_SQ = (18 / 1000) * (18 / 1000) // ~18ms timestep squared
-const CONSTRAINT_ITERATIONS = 15
+const GRAVITY = new THREE.Vector3(0, -0.06, 0)
+const TIMESTEP_SQ = (18 / 1000) * (18 / 1000)
+const CONSTRAINT_ITERATIONS = 12
 
 // ---- Particle class (Verlet integration) ----
 class Particle {
@@ -96,35 +96,44 @@ export function ClothBackground() {
     scene.background = new THREE.Color(0x000000)
 
     const camera = new THREE.PerspectiveCamera(
-      30,
+      45,
       container.clientWidth / container.clientHeight,
       0.1,
       1000
     )
-    camera.position.set(0, -2, 32)
-    camera.lookAt(0, -2, 0)
+    camera.position.set(0, -4, 28)
+    camera.lookAt(0, -4, 0)
 
     const renderer = new THREE.WebGLRenderer({ antialias: true })
     renderer.setSize(container.clientWidth, container.clientHeight)
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
-    renderer.shadowMap.enabled = true
+    renderer.toneMapping = THREE.ACESFilmicToneMapping
+    renderer.toneMappingExposure = 1.2
     container.appendChild(renderer.domElement)
 
-    // ---- Lighting ----
-    const ambientLight = new THREE.AmbientLight(0x222228, 1.5)
+    // ---- Lighting — much brighter to reveal folds ----
+    const ambientLight = new THREE.AmbientLight(0x334, 3.0)
     scene.add(ambientLight)
 
-    const keyLight = new THREE.DirectionalLight(0xdde0ff, 0.8)
-    keyLight.position.set(5, 8, 10)
+    // Key light: strong, slightly warm, from upper-right
+    const keyLight = new THREE.DirectionalLight(0xeeeeff, 2.5)
+    keyLight.position.set(8, 12, 15)
     scene.add(keyLight)
 
-    const fillLight = new THREE.DirectionalLight(0x8888aa, 0.3)
-    fillLight.position.set(-5, 3, 8)
+    // Fill light: cool, from the left
+    const fillLight = new THREE.DirectionalLight(0x8899bb, 1.2)
+    fillLight.position.set(-10, 5, 10)
     scene.add(fillLight)
 
-    const rimLight = new THREE.DirectionalLight(0x556677, 0.4)
-    rimLight.position.set(0, -5, -10)
+    // Back/rim light: highlights cloth edges
+    const rimLight = new THREE.DirectionalLight(0x667799, 1.0)
+    rimLight.position.set(0, -8, -12)
     scene.add(rimLight)
+
+    // Top light for the upper folds
+    const topLight = new THREE.DirectionalLight(0xaabbdd, 0.8)
+    topLight.position.set(0, 15, 5)
+    scene.add(topLight)
 
     // ---- Create particles ----
     const particles: Particle[][] = []
@@ -148,26 +157,22 @@ export function ClothBackground() {
     // ---- Create constraints (structural + shear) ----
     for (let y = 0; y <= CLOTH_H; y++) {
       for (let x = 0; x <= CLOTH_W; x++) {
-        // Structural: right neighbor
         if (x < CLOTH_W) {
           constraints.push(new Constraint(particles[y][x], particles[y][x + 1]))
         }
-        // Structural: bottom neighbor
         if (y < CLOTH_H) {
           constraints.push(new Constraint(particles[y][x], particles[y + 1][x]))
         }
-        // Shear: diagonal down-right
         if (x < CLOTH_W && y < CLOTH_H) {
           constraints.push(new Constraint(particles[y][x], particles[y + 1][x + 1]))
         }
-        // Shear: diagonal down-left
         if (x > 0 && y < CLOTH_H) {
           constraints.push(new Constraint(particles[y][x], particles[y + 1][x - 1]))
         }
       }
     }
 
-    // ---- Cloth mesh ----
+    // ---- Cloth mesh — brighter, visible dark fabric ----
     const clothGeometry = new THREE.PlaneGeometry(
       CLOTH_SIZE_X,
       CLOTH_SIZE_Y,
@@ -176,39 +181,53 @@ export function ClothBackground() {
     )
 
     const clothMaterial = new THREE.MeshPhysicalMaterial({
-      color: 0x111115,
-      roughness: 0.65,
-      metalness: 0.05,
+      color: 0x1a1a2e,       // dark navy — visible against black
+      roughness: 0.55,
+      metalness: 0.1,
       side: THREE.DoubleSide,
-      clearcoat: 0.15,
-      clearcoatRoughness: 0.4,
+      clearcoat: 0.3,
+      clearcoatRoughness: 0.3,
       sheen: 1.0,
-      sheenColor: new THREE.Color(0x222233),
-      sheenRoughness: 0.3,
+      sheenColor: new THREE.Color(0x4444aa),  // subtle blue sheen
+      sheenRoughness: 0.25,
     })
 
     const clothMesh = new THREE.Mesh(clothGeometry, clothMaterial)
     scene.add(clothMesh)
 
-    // ---- Wind ----
+    // ---- Continuous wind — always blowing ----
     let windTime = 0
     function getWind(time: number, x: number, y: number): THREE.Vector3 {
-      // Slowly varying wind with spatial coherence
-      const windStrength = 0.4 + 0.25 * Math.sin(time * 0.3) + 0.15 * Math.sin(time * 0.17 + 2.0)
-      const gustX = Math.sin(time * 0.7 + x * 0.3) * 0.15
-      const gustY = Math.cos(time * 0.5 + y * 0.2) * 0.05
-      const gustZ = windStrength * (
-        1.0
-        + 0.4 * Math.sin(time * 0.23 + x * 0.5 + y * 0.3)
-        + 0.2 * Math.sin(time * 0.41 + x * 0.7 - y * 0.5)
-      )
-      return new THREE.Vector3(gustX, gustY, gustZ)
+      // Base wind always present, pushing cloth out toward the camera
+      const baseStrength = 1.2
+
+      // Slow oscillations for natural feel
+      const swell = 0.4 * Math.sin(time * 0.25) + 0.3 * Math.sin(time * 0.13 + 1.5)
+
+      // Spatial variation — waves traveling across the cloth
+      const wave1 = Math.sin(time * 0.6 + x * 4.0 + y * 2.0) * 0.35
+      const wave2 = Math.sin(time * 0.35 + x * 2.5 - y * 3.0 + 5.0) * 0.25
+      const wave3 = Math.sin(time * 0.9 + x * 6.0 + y * 1.5 + 2.5) * 0.15
+
+      // Gusts — occasional stronger pushes
+      const gust = Math.max(0, Math.sin(time * 0.15)) * 0.6
+
+      const windZ = (baseStrength + swell + gust) * (1.0 + wave1 + wave2 + wave3)
+
+      // Lateral sway
+      const windX = Math.sin(time * 0.4 + y * 2.0) * 0.3
+        + Math.sin(time * 0.7 + x * 3.0) * 0.15
+      const windY = Math.cos(time * 0.3 + x * 1.5) * 0.1
+
+      return new THREE.Vector3(windX, windY, windZ)
     }
 
-    // ---- Raycaster for mouse interaction ----
+    // ---- Mouse interaction ----
     const raycaster = new THREE.Raycaster()
-    const mouseInfluenceRadius = 4
-    const mouseForceStrength = 0.6
+    const mouseInfluenceRadius = 6
+    const mousePushStrength = 1.5      // constant repulsion when hovering
+    const mouseSwipeStrength = 1.2     // extra force from fast mouse movement
+    const mouseWorldPos = new THREE.Vector3()  // smoothed world position of mouse
 
     function onMouseMove(e: MouseEvent) {
       const rect = container!.getBoundingClientRect()
@@ -222,9 +241,8 @@ export function ClothBackground() {
 
     // ---- Physics step ----
     function simulate() {
-      windTime += 0.016
+      windTime += 0.018
 
-      // Apply forces
       for (let y = 0; y <= CLOTH_H; y++) {
         for (let x = 0; x <= CLOTH_W; x++) {
           const p = particles[y][x]
@@ -233,55 +251,74 @@ export function ClothBackground() {
           // Gravity
           p.addForce(GRAVITY)
 
-          // Wind - apply to front face, strength increases toward bottom
-          const windFalloff = (y / CLOTH_H) // more wind effect further from pin
+          // Wind — continuous, stronger further from the pinned top
+          const falloff = Math.pow(y / CLOTH_H, 0.7)
           const wind = getWind(windTime, x / CLOTH_W, y / CLOTH_H)
-          wind.multiplyScalar(windFalloff)
+          wind.multiplyScalar(falloff)
           p.addForce(wind)
         }
       }
 
-      // Mouse interaction - push cloth with the mouse
+      // Mouse interaction — always active where the cursor is
       raycaster.setFromCamera(mouseRef.current, camera)
       const mouseDelta = new THREE.Vector2().subVectors(mouseRef.current, prevMouseRef.current)
       const mouseSpeed = mouseDelta.length()
 
-      if (mouseSpeed > 0.001) {
-        // Find intersection with the cloth plane (roughly z=0 plane)
-        const planeNormal = new THREE.Vector3(0, 0, 1)
-        const plane = new THREE.Plane(planeNormal, 0)
-        const intersectPoint = new THREE.Vector3()
-        raycaster.ray.intersectPlane(plane, intersectPoint)
+      // Find where the mouse ray hits the cloth plane (z=average cloth z)
+      const planeNormal = new THREE.Vector3(0, 0, 1)
+      const plane = new THREE.Plane(planeNormal, 0)
+      const intersectPoint = new THREE.Vector3()
+      raycaster.ray.intersectPlane(plane, intersectPoint)
 
-        if (intersectPoint) {
-          for (let y = 0; y <= CLOTH_H; y++) {
-            for (let x = 0; x <= CLOTH_W; x++) {
-              const p = particles[y][x]
-              if (p.pinned) continue
+      if (intersectPoint) {
+        // Smooth the target position to avoid jitter
+        mouseWorldPos.lerp(intersectPoint, 0.3)
 
-              const dist = p.position.distanceTo(intersectPoint)
-              if (dist < mouseInfluenceRadius) {
-                const influence = 1 - dist / mouseInfluenceRadius
-                const force = new THREE.Vector3(
-                  mouseDelta.x * mouseForceStrength * influence,
-                  mouseDelta.y * mouseForceStrength * influence,
-                  influence * 0.3
+        for (let y = 0; y <= CLOTH_H; y++) {
+          for (let x = 0; x <= CLOTH_W; x++) {
+            const p = particles[y][x]
+            if (p.pinned) continue
+
+            const dist = p.position.distanceTo(mouseWorldPos)
+            if (dist < mouseInfluenceRadius) {
+              const influence = (1 - dist / mouseInfluenceRadius)
+              const smoothInfluence = influence * influence  // quadratic falloff — soft edge
+
+              // 1) Constant push: cloth bulges away from mouse (toward camera)
+              const pushForce = new THREE.Vector3(0, 0, smoothInfluence * mousePushStrength)
+              p.addForce(pushForce)
+
+              // 2) Swipe force: extra push in the direction of mouse movement
+              if (mouseSpeed > 0.001) {
+                const swipeForce = new THREE.Vector3(
+                  mouseDelta.x * mouseSwipeStrength * smoothInfluence * 15,
+                  mouseDelta.y * mouseSwipeStrength * smoothInfluence * 15,
+                  smoothInfluence * 0.5
                 )
-                p.addForce(force)
+                p.addForce(swipeForce)
+              }
+
+              // 3) Radial repulsion: push particles away from mouse center
+              const radialDir = new THREE.Vector3().subVectors(p.position, mouseWorldPos)
+              radialDir.z = 0 // only lateral repulsion
+              const radialLen = radialDir.length()
+              if (radialLen > 0.01) {
+                radialDir.normalize()
+                p.addForce(radialDir.multiplyScalar(smoothInfluence * 0.15))
               }
             }
           }
         }
       }
 
-      // Integrate particles
+      // Integrate
       for (let y = 0; y <= CLOTH_H; y++) {
         for (let x = 0; x <= CLOTH_W; x++) {
           particles[y][x].integrate()
         }
       }
 
-      // Satisfy constraints
+      // Constraints
       for (let iter = 0; iter < CONSTRAINT_ITERATIONS; iter++) {
         for (const constraint of constraints) {
           constraint.satisfy()
@@ -301,7 +338,7 @@ export function ClothBackground() {
       clothGeometry.computeVertexNormals()
     }
 
-    // ---- Resize handler ----
+    // ---- Resize ----
     function onResize() {
       const w = container!.clientWidth
       const h = container!.clientHeight
@@ -311,7 +348,7 @@ export function ClothBackground() {
     }
     window.addEventListener('resize', onResize)
 
-    // ---- Animation loop ----
+    // ---- Animate ----
     function animate() {
       simulate()
       renderer.render(scene, camera)

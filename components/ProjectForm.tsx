@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
-import Link from 'next/link'
 import { PROJECT_TYPE_LABELS, PROJECT_TYPE_COLORS, VISION_AREA_COLORS, type ProjectType, type VisionWithDetails } from '@/types'
 import { getInitials } from '@/lib/utils'
 
@@ -78,6 +77,16 @@ export function ProjectForm({ mode, initialData, restrictedEdit }: ProjectFormPr
   const [businessRationale, setBusinessRationale] = useState(initialData?.businessRationale || '')
   const [visionId, setVisionId] = useState<string | null>(initialData?.visionId || null)
   const [department, setDepartment] = useState(initialData?.department || '')
+  const [showSecurityNotice, setShowSecurityNotice] = useState(true)
+  const [showCreateVision, setShowCreateVision] = useState(false)
+  const [newVisionTitle, setNewVisionTitle] = useState('')
+  const [newVisionArea, setNewVisionArea] = useState('')
+  const [newVisionDocUrl, setNewVisionDocUrl] = useState('')
+  const [creatingVision, setCreatingVision] = useState(false)
+  const [createVisionError, setCreateVisionError] = useState('')
+  const [docLinks, setDocLinks] = useState<string[]>(
+    initialData?.docLink ? initialData.docLink.split(',').map(s => s.trim()).filter(Boolean) : ['']
+  )
 
   // Fetch visions for the dropdown
   useEffect(() => {
@@ -97,6 +106,45 @@ export function ProjectForm({ mode, initialData, restrictedEdit }: ProjectFormPr
     fetchVisions()
   }, [])
 
+  const handleCreateVision = async () => {
+    if (!newVisionTitle.trim() || !newVisionArea.trim()) return
+    setCreatingVision(true)
+    setCreateVisionError('')
+    try {
+      const res = await fetch('/api/visions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: newVisionTitle,
+          area: newVisionArea,
+          docUrl: newVisionDocUrl || null,
+          description: '',
+          kpis: '',
+        }),
+      })
+      if (!res.ok) {
+        const data = await res.json()
+        throw new Error(data.error || 'Failed to create vision')
+      }
+      const created = await res.json()
+      // Refresh visions list and auto-select the new one
+      const visionsRes = await fetch('/api/visions')
+      if (visionsRes.ok) {
+        const data = await visionsRes.json()
+        setVisions(data)
+      }
+      setVisionId(created.id)
+      setShowCreateVision(false)
+      setNewVisionTitle('')
+      setNewVisionArea('')
+      setNewVisionDocUrl('')
+    } catch (err) {
+      setCreateVisionError(err instanceof Error ? err.message : 'Failed to create vision')
+    } finally {
+      setCreatingVision(false)
+    }
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
@@ -104,12 +152,12 @@ export function ProjectForm({ mode, initialData, restrictedEdit }: ProjectFormPr
 
     try {
       const body = restrictedEdit
-        ? { slackChannel, docLink: docLink || null }
+        ? { slackChannel, docLink: docLinks.filter(l => l.trim()).join(', ') || null }
         : {
             name,
             description,
             pitchVideoUrl: pitchVideoUrl || null,
-            docLink: docLink || null,
+            docLink: docLinks.filter(l => l.trim()).join(', ') || null,
             projectType,
             slackChannel,
             businessRationale: businessRationale || null,
@@ -145,21 +193,32 @@ export function ProjectForm({ mode, initialData, restrictedEdit }: ProjectFormPr
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      {/* Security Warning Banner */}
-      <div className="p-4 rounded-lg bg-amber-50 border border-amber-300 dark:bg-amber-500/10 dark:border-amber-500/30">
-        <div className="flex items-start gap-3">
-          <svg className="w-5 h-5 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-          </svg>
-          <div>
-            <p className="font-medium text-amber-800 dark:text-amber-400">Important Security Notice</p>
-            <p className="text-sm text-amber-700 dark:text-amber-300/80 mt-1">
-              Do not include any proprietary business logic, confidential code, or sensitive company information in your submissions. 
-              Use your Google Doc for detailed descriptions.
-            </p>
+      {/* Security Warning Banner — dismissible */}
+      {showSecurityNotice && (
+        <div className="p-4 rounded-lg bg-amber-50 border border-amber-300 dark:bg-amber-500/10 dark:border-amber-500/30">
+          <div className="flex items-start gap-3">
+            <svg className="w-5 h-5 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+            <div className="flex-1">
+              <p className="font-medium text-amber-800 dark:text-amber-400">Important Security Notice</p>
+              <p className="text-sm text-amber-700 dark:text-amber-300/80 mt-1">
+                Do not include any proprietary business logic, confidential code, or sensitive company information in your submissions. 
+                Use your Google Doc for detailed descriptions.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowSecurityNotice(false)}
+              className="text-amber-600 dark:text-amber-400 hover:text-amber-800 dark:hover:text-amber-300 transition-colors flex-shrink-0"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
           </div>
         </div>
-      </div>
+      )}
 
       {error && (
         <div className="p-4 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400">
@@ -381,22 +440,30 @@ export function ProjectForm({ mode, initialData, restrictedEdit }: ProjectFormPr
           <h3 className="text-sm font-semibold uppercase tracking-wider text-gray-500">Optional</h3>
         </div>
 
-        {/* Department / Team */}
+        {/* Vertical / Team — fed from visions' areas */}
         <div>
           <label htmlFor="department" className="block text-sm font-medium text-gray-300 mb-2">
-            Department / Team
+            Vertical / Team
           </label>
           <input
             type="text"
             id="department"
+            list="vertical-options"
             value={department}
             onChange={(e) => setDepartment(e.target.value)}
             disabled={restrictedEdit}
-            placeholder="e.g., Engineering, Product, Sales, Marketing..."
+            placeholder="Select or type a vertical / team..."
             className="input-field disabled:opacity-50 disabled:cursor-not-allowed"
           />
+          <datalist id="vertical-options">
+            {[...new Set(visions.map(v => v.area).filter(Boolean))]
+              .sort((a, b) => a.localeCompare(b))
+              .map((area) => (
+                <option key={area} value={area} />
+              ))}
+          </datalist>
           <p className="text-xs text-gray-500 mt-2">
-            Specify which department or team this project is for.
+            Select an existing vertical from Visions or type a new one.
           </p>
         </div>
 
@@ -405,7 +472,7 @@ export function ProjectForm({ mode, initialData, restrictedEdit }: ProjectFormPr
           <label htmlFor="visionId" className="block text-sm font-medium text-gray-300 mb-2">
             Related Vision / KPI
           </label>
-          <div className="flex gap-3">
+          <div className="flex gap-2">
             <select
               id="visionId"
               value={visionId || ''}
@@ -424,47 +491,166 @@ export function ProjectForm({ mode, initialData, restrictedEdit }: ProjectFormPr
                 ))
               )}
             </select>
-            <Link
-              href="/visions"
-              target="_blank"
-              className="btn-secondary text-sm whitespace-nowrap"
+            <button
+              type="button"
+              onClick={() => setShowCreateVision(true)}
+              disabled={restrictedEdit}
+              className="btn-secondary text-sm whitespace-nowrap flex items-center gap-1 disabled:opacity-50"
             >
-              Browse Visions
-            </Link>
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              New Vision
+            </button>
           </div>
           {visionId && visions.find(v => v.id === visionId) && (
             <div className="mt-2 p-3 rounded-lg bg-white/5 border border-white/10">
-              <div className="flex items-center gap-2 mb-1">
+              <div className="flex items-center gap-2">
                 <span className={`badge text-xs ${VISION_AREA_COLORS[visions.find(v => v.id === visionId)?.area || 'Other']}`}>
                   {visions.find(v => v.id === visionId)?.area}
                 </span>
                 <span className="font-medium text-sm">{visions.find(v => v.id === visionId)?.title}</span>
               </div>
-              {visions.find(v => v.id === visionId)?.kpis && (
-                <p className="text-xs text-gray-400">
-                  KPIs: {visions.find(v => v.id === visionId)?.kpis}
-                </p>
-              )}
             </div>
           )}
           <p className="text-xs text-gray-500 mt-2">
             Link your project to a company vision or KPI to help others understand its strategic alignment.
           </p>
+
+          {/* Inline Create Vision Modal */}
+          {showCreateVision && (
+            <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
+              <div className="glass-card p-6 w-full max-w-md relative">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowCreateVision(false)
+                    setCreateVisionError('')
+                  }}
+                  className="absolute top-4 right-4 text-gray-400 hover:text-white transition-colors"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+
+                <h3 className="text-lg font-semibold text-white mb-4">Create New Vision</h3>
+
+                {createVisionError && (
+                  <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-sm mb-4">
+                    {createVisionError}
+                  </div>
+                )}
+
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">Title *</label>
+                    <input
+                      type="text"
+                      value={newVisionTitle}
+                      onChange={(e) => setNewVisionTitle(e.target.value)}
+                      placeholder="e.g., Improve Customer Retention by 20%"
+                      className="input-field"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">Vertical / Team *</label>
+                    <input
+                      type="text"
+                      list="new-vision-area-options"
+                      value={newVisionArea}
+                      onChange={(e) => setNewVisionArea(e.target.value)}
+                      placeholder="e.g., Growth, Engineering, Sales..."
+                      className="input-field"
+                    />
+                    <datalist id="new-vision-area-options">
+                      {[...new Set(visions.map(v => v.area).filter(Boolean))]
+                        .sort((a, b) => a.localeCompare(b))
+                        .map((area) => (
+                          <option key={area} value={area} />
+                        ))}
+                    </datalist>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">Document URL</label>
+                    <input
+                      type="url"
+                      value={newVisionDocUrl}
+                      onChange={(e) => setNewVisionDocUrl(e.target.value)}
+                      placeholder="https://docs.google.com/..."
+                      className="input-field"
+                    />
+                  </div>
+                  <div className="flex items-center gap-3 pt-2">
+                    <button
+                      type="button"
+                      onClick={handleCreateVision}
+                      disabled={creatingVision || !newVisionTitle.trim() || !newVisionArea.trim()}
+                      className="btn-primary disabled:opacity-50"
+                    >
+                      {creatingVision ? 'Creating...' : 'Create & Select'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowCreateVision(false)
+                        setCreateVisionError('')
+                      }}
+                      className="btn-secondary"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
-        {/* Doc/Figma link */}
+        {/* Doc/Figma links — multiple */}
         <div>
-          <label htmlFor="docLink" className="block text-sm font-medium text-gray-300 mb-2">
-            Document / Figma Link
+          <label className="block text-sm font-medium text-gray-300 mb-2">
+            Documents / Figma Links
           </label>
-          <input
-            type="url"
-            id="docLink"
-            value={docLink}
-            onChange={(e) => setDocLink(e.target.value)}
-            placeholder="https://docs.google.com/... or https://figma.com/..."
-            className="input-field"
-          />
+          <div className="space-y-2">
+            {docLinks.map((link, idx) => (
+              <div key={idx} className="flex items-center gap-2">
+                <input
+                  type="url"
+                  value={link}
+                  onChange={(e) => {
+                    const updated = [...docLinks]
+                    updated[idx] = e.target.value
+                    setDocLinks(updated)
+                  }}
+                  placeholder="https://docs.google.com/... or https://figma.com/..."
+                  className="input-field flex-1"
+                />
+                {docLinks.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => setDocLinks(docLinks.filter((_, i) => i !== idx))}
+                    className="text-gray-500 hover:text-red-400 transition-colors flex-shrink-0 p-1"
+                    title="Remove link"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+          <button
+            type="button"
+            onClick={() => setDocLinks([...docLinks, ''])}
+            className="mt-2 text-sm text-purple-400 hover:text-purple-300 transition-colors flex items-center gap-1"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+            Add another link
+          </button>
         </div>
       </div>
 
