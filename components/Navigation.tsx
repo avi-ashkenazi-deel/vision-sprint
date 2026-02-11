@@ -53,8 +53,8 @@ export function Navigation() {
             <span className="font-semibold text-[var(--foreground)]">VisionSprint</span>
           </Link>
 
-          {/* Center nav items */}
-          <div className="hidden md:flex items-center gap-1">
+          {/* Center nav items - only show when logged in */}
+          {session && <div className="hidden md:flex items-center gap-1">
             <Link
               href="/"
               className={`px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
@@ -87,7 +87,7 @@ export function Navigation() {
                 Admin
               </Link>
             )}
-          </div>
+          </div>}
 
           {/* Right side */}
           <div className="flex items-center gap-4">
@@ -124,18 +124,26 @@ export function Navigation() {
                 </button>
 
                 {showUserMenu && (
-                  <div className="absolute right-0 mt-2 w-56 bg-[var(--card-bg)] border border-[var(--card-border)] rounded-lg shadow-lg p-1.5">
-                    <div className="px-3 py-2.5 border-b border-[var(--card-border)] mb-1.5">
-                      <p className="text-sm font-medium text-[var(--foreground)] truncate">{session.user?.name}</p>
-                      <p className="text-xs text-[var(--foreground-secondary)] truncate">{session.user?.email}</p>
+                  <>
+                    {/* Backdrop to close menu when clicking outside */}
+                    <div className="fixed inset-0 z-10" onClick={() => setShowUserMenu(false)} />
+                    <div className="absolute right-0 mt-2 w-56 bg-[var(--card-bg)] border border-[var(--card-border)] rounded-lg shadow-lg p-1.5 z-20">
+                      <div className="px-3 py-2.5 border-b border-[var(--card-border)] mb-1.5">
+                        <p className="text-sm font-medium text-[var(--foreground)] truncate">{session.user?.name}</p>
+                        <p className="text-xs text-[var(--foreground-secondary)] truncate">{session.user?.email}</p>
+                      </div>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setShowUserMenu(false)
+                          signOut({ callbackUrl: '/auth/signin' })
+                        }}
+                        className="w-full text-left px-3 py-2 text-sm text-[var(--foreground-secondary)] hover:text-[var(--foreground)] hover:bg-[var(--background)] rounded-md transition-colors"
+                      >
+                        Sign out
+                      </button>
                     </div>
-                    <button
-                      onClick={() => signOut()}
-                      className="w-full text-left px-3 py-2 text-sm text-[var(--foreground-secondary)] hover:text-[var(--foreground)] hover:bg-[var(--background)] rounded-md transition-colors"
-                    >
-                      Sign out
-                    </button>
-                  </div>
+                  </>
                 )}
               </div>
             ) : (

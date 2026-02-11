@@ -3,6 +3,7 @@
 import { signIn, getProviders } from 'next-auth/react'
 import { useSearchParams } from 'next/navigation'
 import { Suspense, useState, useEffect } from 'react'
+import { ClothBackground } from '@/components/ClothBackground'
 
 type Provider = {
   id: string
@@ -32,8 +33,9 @@ function SignInContent() {
   const hasGoogleProvider = providers?.google
 
   return (
-    <div className="min-h-[calc(100vh-5rem)] flex items-center justify-center px-4">
-      <div className="glass-card p-8 w-full max-w-md text-center">
+    <div className="min-h-[calc(100vh-5rem)] flex items-center justify-center px-4 relative">
+      <ClothBackground />
+      <div className="p-8 w-full max-w-md text-center relative z-10 rounded-2xl bg-black/90 backdrop-blur-sm border border-white/[0.12] shadow-[0_0_30px_rgba(255,255,255,0.03)]">
         {/* Logo */}
         <div className="w-14 h-14 mx-auto mb-6 rounded-xl bg-[var(--accent-purple)] flex items-center justify-center">
           <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -57,7 +59,7 @@ function SignInContent() {
         {/* Google Sign In */}
         <button
           onClick={() => signIn('google', { callbackUrl })}
-          className="w-full flex items-center justify-center gap-3 bg-[var(--card-bg)] text-[var(--foreground)] font-medium py-3 px-4 rounded-lg border border-[var(--card-border)] hover:bg-[var(--background)] hover:border-[var(--accent-purple)] transition-all mb-6"
+          className="w-full flex items-center justify-center gap-3 bg-white/[0.06] text-white font-medium py-3 px-4 rounded-xl border border-white/[0.1] hover:bg-white/[0.1] hover:border-white/[0.2] transition-all mb-6"
         >
           <svg className="w-5 h-5" viewBox="0 0 24 24">
             <path
@@ -82,7 +84,7 @@ function SignInContent() {
 
         {/* Development Login - only shown in development */}
         {process.env.NODE_ENV !== 'production' && (
-          <div className="p-4 rounded-lg bg-[var(--badge-amber-bg)] border border-[var(--accent-amber)] mb-6">
+          <div className="p-4 rounded-xl bg-amber-500/[0.08] border border-amber-500/20 mb-6">
             <p className="text-[var(--badge-amber-text)] text-sm font-medium mb-3">
               Development Mode
             </p>

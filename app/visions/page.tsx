@@ -2,13 +2,15 @@
 
 import { useState, useEffect } from 'react'
 import { useSession } from 'next-auth/react'
+import { useRouter } from 'next/navigation'
 import { VisionCard } from '@/components/VisionCard'
 import { VISION_AREA_COLORS, type VisionWithDetails } from '@/types'
 
 type SortOption = 'likes' | 'recent' | 'projects'
 
 export default function VisionsPage() {
-  const { data: session } = useSession()
+  const { data: session, status } = useSession()
+  const router = useRouter()
   const [visions, setVisions] = useState<(VisionWithDetails & { hasLiked: boolean })[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedArea, setSelectedArea] = useState<string | null>(null)
@@ -25,6 +27,13 @@ export default function VisionsPage() {
   })
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState('')
+
+  // Redirect unauthenticated users to sign-in
+  useEffect(() => {
+    if (status === 'unauthenticated') {
+      router.push('/auth/signin')
+    }
+  }, [status, router])
 
   useEffect(() => {
     fetchVisions()
@@ -96,6 +105,14 @@ export default function VisionsPage() {
 
   const existingAreas = Object.keys(areaCounts).sort((a, b) => a.localeCompare(b))
 
+  if (status === 'loading' || status === 'unauthenticated') {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="w-8 h-8 border-2 border-purple-500/30 border-t-purple-500 rounded-full animate-spin" />
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen pt-20 pb-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-7xl mx-auto">
@@ -111,7 +128,7 @@ export default function VisionsPage() {
             </p>
           </div>
 
-          {session?.user?.isAdmin && (
+          {session && (
             <button
               onClick={() => setShowAddForm(true)}
               className="btn-primary whitespace-nowrap"
@@ -290,9 +307,7 @@ export default function VisionsPage() {
               {selectedArea ? `No visions in "${selectedArea}"` : 'No visions yet'}
             </h3>
             <p className="text-gray-500">
-              {session?.user?.isAdmin
-                ? 'Add the first vision to help inspire project ideas.'
-                : 'Check back later for vision documents.'}
+              Add the first vision to help inspire project ideas.
             </p>
           </div>
         ) : (
