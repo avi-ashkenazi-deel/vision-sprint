@@ -74,11 +74,18 @@ interface Team {
 }
 
 export default function HomePage() {
-  const { data: session } = useSession()
+  const { data: session, status } = useSession()
   const router = useRouter()
   const { appState } = useAppState()
   const [projects, setProjects] = useState<Project[]>([])
   const [loading, setLoading] = useState(true)
+
+  // Redirect unauthenticated users to sign-in
+  useEffect(() => {
+    if (status === 'unauthenticated') {
+      router.push('/auth/signin')
+    }
+  }, [status, router])
   const [filter, setFilter] = useState<ProjectType | 'ALL'>('ALL')
   const [sortBy, setSortBy] = useState<'votes' | 'name' | 'date' | 'creator' | 'myVote'>('votes')
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
@@ -278,6 +285,15 @@ export default function HomePage() {
   ]
 
   const isSubmissionsOpen = appState?.stage === 'RECEIVING_SUBMISSIONS' || appState?.testMode
+
+  // Show nothing while checking auth (prevents flash of content)
+  if (status === 'loading' || status === 'unauthenticated') {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="w-8 h-8 border-2 border-purple-500/30 border-t-purple-500 rounded-full animate-spin" />
+      </div>
+    )
+  }
 
   // Sprint dashboard during EXECUTING_SPRINT stage
   if (appState?.stage === 'EXECUTING_SPRINT') {
@@ -945,7 +961,7 @@ export default function HomePage() {
             <thead>
               <tr className="border-b border-white/10">
                 <th 
-                  className="text-left px-6 py-4 text-sm font-medium text-gray-400 cursor-pointer hover:text-white transition-colors w-[40%]"
+                  className="text-left px-6 py-4 text-sm font-medium text-gray-400 cursor-pointer hover:text-white transition-colors w-[30%]"
                   onClick={() => handleSort('name')}
                 >
                   <span className="flex items-center gap-1">
@@ -1018,7 +1034,6 @@ export default function HomePage() {
                     <div className="font-semibold text-white hover:text-purple-400 transition-colors">
                       {project.name}
                     </div>
-                    <div className="text-sm text-gray-500 line-clamp-1">{project.description}</div>
                   </td>
                   <td className="px-6 py-4 hidden md:table-cell">
                     <span className={`badge text-xs ${PROJECT_TYPE_COLORS[project.projectType]}`}>

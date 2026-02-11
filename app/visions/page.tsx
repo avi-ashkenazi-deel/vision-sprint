@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useSession } from 'next-auth/react'
 import { VisionCard } from '@/components/VisionCard'
-import { VISION_AREAS, VISION_AREA_COLORS, type VisionWithDetails } from '@/types'
+import { VISION_AREA_COLORS, type VisionWithDetails } from '@/types'
 
 type SortOption = 'likes' | 'recent' | 'projects'
 
@@ -19,7 +19,7 @@ export default function VisionsPage() {
   const [newVision, setNewVision] = useState({
     title: '',
     description: '',
-    area: 'Growth',
+    area: '',
     docUrl: '',
     kpis: '',
   })
@@ -64,7 +64,7 @@ export default function VisionsPage() {
       // Refresh visions
       await fetchVisions()
       setShowAddForm(false)
-      setNewVision({ title: '', description: '', area: 'Growth', docUrl: '', kpis: '' })
+      setNewVision({ title: '', description: '', area: '', docUrl: '', kpis: '' })
     } catch (error) {
       setSubmitError(error instanceof Error ? error.message : 'Failed to create vision')
     } finally {
@@ -88,11 +88,13 @@ export default function VisionsPage() {
       }
     })
 
-  // Get area counts
+  // Get area counts and sorted unique areas
   const areaCounts = visions.reduce((acc, v) => {
     acc[v.area] = (acc[v.area] || 0) + 1
     return acc
   }, {} as Record<string, number>)
+
+  const existingAreas = Object.keys(areaCounts).sort((a, b) => a.localeCompare(b))
 
   return (
     <div className="min-h-screen pt-20 pb-12 px-4 sm:px-6 lg:px-8">
@@ -103,8 +105,8 @@ export default function VisionsPage() {
             Vision Documents
           </h1>
           <p className="text-gray-400 max-w-2xl">
-            Browse company visions and KPIs to inspire your project ideas. Like the visions
-            that are relevant to your area to help suggesters understand what matters most.
+            Browse company visions to inspire your project ideas. Like the visions
+            that are relevant to your vertical to help suggesters understand what matters most.
           </p>
         </div>
 
@@ -141,34 +143,28 @@ export default function VisionsPage() {
                   />
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">
-                    Description *
-                  </label>
-                  <textarea
-                    value={newVision.description}
-                    onChange={(e) => setNewVision({ ...newVision, description: e.target.value })}
-                    required
-                    rows={4}
-                    placeholder="Describe the vision and its importance..."
-                    className="input-field resize-y"
-                  />
-                </div>
-
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-300 mb-2">
-                      Area *
+                      Vertical / Team *
                     </label>
-                    <select
+                    <input
+                      type="text"
+                      list="area-options"
                       value={newVision.area}
                       onChange={(e) => setNewVision({ ...newVision, area: e.target.value })}
+                      required
+                      placeholder="e.g., Growth, Engineering, Sales..."
                       className="input-field"
-                    >
-                      {VISION_AREAS.map((area) => (
-                        <option key={area} value={area}>{area}</option>
+                    />
+                    <datalist id="area-options">
+                      {existingAreas.map((area) => (
+                        <option key={area} value={area} />
                       ))}
-                    </select>
+                    </datalist>
+                    <p className="text-xs text-gray-500 mt-1">
+                      Select an existing vertical or type a new one.
+                    </p>
                   </div>
 
                   <div>
@@ -183,19 +179,6 @@ export default function VisionsPage() {
                       className="input-field"
                     />
                   </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">
-                    Related KPIs
-                  </label>
-                  <input
-                    type="text"
-                    value={newVision.kpis}
-                    onChange={(e) => setNewVision({ ...newVision, kpis: e.target.value })}
-                    placeholder="e.g., NPS, Churn Rate, Monthly Active Users"
-                    className="input-field"
-                  />
                 </div>
 
                 <button
@@ -222,15 +205,15 @@ export default function VisionsPage() {
                   : 'bg-white/5 text-gray-400 border-white/10 hover:border-white/20'
               }`}
             >
-              All Areas ({visions.length})
+              All ({visions.length})
             </button>
-            {VISION_AREAS.filter((area) => areaCounts[area]).map((area) => (
+            {existingAreas.map((area) => (
               <button
                 key={area}
                 onClick={() => setSelectedArea(area === selectedArea ? null : area)}
                 className={`badge text-sm ${
                   selectedArea === area
-                    ? VISION_AREA_COLORS[area]
+                    ? (VISION_AREA_COLORS[area] || 'bg-purple-500/20 text-purple-300 border-purple-500/30')
                     : 'bg-white/5 text-gray-400 border-white/10 hover:border-white/20'
                 }`}
               >
@@ -277,7 +260,7 @@ export default function VisionsPage() {
               </svg>
             </div>
             <h3 className="text-lg font-medium text-gray-300 mb-2">
-              {selectedArea ? `No visions in ${selectedArea}` : 'No visions yet'}
+              {selectedArea ? `No visions in "${selectedArea}"` : 'No visions yet'}
             </h3>
             <p className="text-gray-500">
               {session?.user?.isAdmin

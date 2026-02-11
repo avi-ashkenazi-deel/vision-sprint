@@ -79,16 +79,16 @@ export async function POST(request: Request) {
     const body = await request.json()
     const { title, description, area, docUrl, kpis } = body
 
-    if (!title || !description || !area) {
+    if (!title || !area) {
       return NextResponse.json(
-        { error: 'Missing required fields (title, description, area)' },
+        { error: 'Missing required fields (title, area)' },
         { status: 400 }
       )
     }
 
     const vision = await Vision.create({
       title,
-      description,
+      description: description || '',
       area,
       docUrl: docUrl || null,
       kpis: kpis || null,

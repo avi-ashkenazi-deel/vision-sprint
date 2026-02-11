@@ -88,19 +88,6 @@ export function VisionCard({ vision, onLikeToggle }: VisionCardProps) {
         </button>
       </div>
 
-      {/* Description */}
-      <p className="text-gray-300 text-sm mb-4 line-clamp-3">
-        {vision.description}
-      </p>
-
-      {/* KPIs */}
-      {vision.kpis && (
-        <div className="mb-4 p-3 rounded-lg bg-white/5 border border-white/10">
-          <p className="text-xs text-gray-400 mb-1 font-medium">Related KPIs</p>
-          <p className="text-sm text-gray-300">{vision.kpis}</p>
-        </div>
-      )}
-
       {/* Footer */}
       <div className="flex items-center justify-between pt-4 border-t border-white/10">
         {/* Creator */}
