@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import { usePathname } from 'next/navigation'
 import { useSession, signOut } from 'next-auth/react'
 import { useAppState } from '@/components/providers/AppStateProvider'
 import { useState } from 'react'
@@ -9,6 +10,7 @@ import Image from 'next/image'
 export function Navigation() {
   const { data: session, status } = useSession()
   const { appState } = useAppState()
+  const pathname = usePathname()
   const [showUserMenu, setShowUserMenu] = useState(false)
 
   const getStageLabel = () => {
@@ -55,20 +57,32 @@ export function Navigation() {
           <div className="hidden md:flex items-center gap-1">
             <Link
               href="/"
-              className="px-3 py-2 text-sm font-medium text-[var(--foreground-secondary)] hover:text-[var(--foreground)] hover:bg-[var(--background)] rounded-lg transition-colors"
+              className={`px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
+                pathname === '/'
+                  ? 'text-[var(--foreground)] bg-[var(--background)]'
+                  : 'text-[var(--foreground-secondary)] hover:text-[var(--foreground)] hover:bg-[var(--background)]'
+              }`}
             >
               Home
             </Link>
             <Link
               href="/visions"
-              className="px-3 py-2 text-sm font-medium text-[var(--foreground-secondary)] hover:text-[var(--foreground)] hover:bg-[var(--background)] rounded-lg transition-colors"
+              className={`px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
+                pathname === '/visions'
+                  ? 'text-[var(--foreground)] bg-[var(--background)]'
+                  : 'text-[var(--foreground-secondary)] hover:text-[var(--foreground)] hover:bg-[var(--background)]'
+              }`}
             >
               Visions
             </Link>
             {session?.user?.isAdmin && (
               <Link
                 href="/admin"
-                className="px-3 py-2 text-sm font-medium text-[var(--foreground-secondary)] hover:text-[var(--foreground)] hover:bg-[var(--background)] rounded-lg transition-colors"
+                className={`px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
+                  pathname === '/admin'
+                    ? 'text-[var(--foreground)] bg-[var(--background)]'
+                    : 'text-[var(--foreground-secondary)] hover:text-[var(--foreground)] hover:bg-[var(--background)]'
+                }`}
               >
                 Admin
               </Link>
