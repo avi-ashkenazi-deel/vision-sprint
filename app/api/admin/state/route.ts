@@ -13,6 +13,7 @@ export async function GET() {
       appState = await AppState.create({
         id: 'singleton',
         stage: AppStage.RECEIVING_SUBMISSIONS,
+        submissionEndDate: new Date('2026-02-28T18:00:00Z'),
         sprintStartDate: new Date('2026-03-02T09:00:00Z'),
         sprintEndDate: new Date('2026-03-03T18:00:00Z'),
         testMode: false,
@@ -36,13 +37,14 @@ export async function PUT(request: Request) {
     }
 
     const body = await request.json()
-    const { stage, sprintStartDate, sprintEndDate, testMode } = body
+    const { stage, submissionEndDate, sprintStartDate, sprintEndDate, testMode } = body
 
     let appState = await AppState.findByPk('singleton')
 
     if (appState) {
       await appState.update({
         ...(stage && { stage }),
+        ...(submissionEndDate && { submissionEndDate: new Date(submissionEndDate) }),
         ...(sprintStartDate && { sprintStartDate: new Date(sprintStartDate) }),
         ...(sprintEndDate && { sprintEndDate: new Date(sprintEndDate) }),
         ...(typeof testMode === 'boolean' && { testMode }),
@@ -51,6 +53,7 @@ export async function PUT(request: Request) {
       appState = await AppState.create({
         id: 'singleton',
         stage: stage || AppStage.RECEIVING_SUBMISSIONS,
+        submissionEndDate: submissionEndDate ? new Date(submissionEndDate) : new Date('2026-02-28T18:00:00Z'),
         sprintStartDate: sprintStartDate ? new Date(sprintStartDate) : new Date('2026-03-02T09:00:00Z'),
         sprintEndDate: sprintEndDate ? new Date(sprintEndDate) : new Date('2026-03-03T18:00:00Z'),
         testMode: testMode || false,

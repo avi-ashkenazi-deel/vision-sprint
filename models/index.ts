@@ -878,6 +878,7 @@ WatchedVideo.init({
 export interface AppStateAttributes {
   id: string
   stage: AppStage
+  submissionEndDate: Date | null
   sprintStartDate: Date | null
   sprintEndDate: Date | null
   testMode: boolean
@@ -885,11 +886,12 @@ export interface AppStateAttributes {
   updatedAt?: Date
 }
 
-interface AppStateCreationAttributes extends Optional<AppStateAttributes, 'id' | 'stage' | 'sprintStartDate' | 'sprintEndDate' | 'testMode' | 'createdAt' | 'updatedAt'> {}
+interface AppStateCreationAttributes extends Optional<AppStateAttributes, 'id' | 'stage' | 'submissionEndDate' | 'sprintStartDate' | 'sprintEndDate' | 'testMode' | 'createdAt' | 'updatedAt'> {}
 
 export class AppState extends Model<AppStateAttributes, AppStateCreationAttributes> implements AppStateAttributes {
   public id!: string
   public stage!: AppStage
+  public submissionEndDate!: Date | null
   public sprintStartDate!: Date | null
   public sprintEndDate!: Date | null
   public testMode!: boolean
@@ -906,6 +908,10 @@ AppState.init({
   stage: {
     type: DataTypes.ENUM(...Object.values(AppStage)),
     defaultValue: AppStage.RECEIVING_SUBMISSIONS
+  },
+  submissionEndDate: {
+    type: DataTypes.DATE,
+    allowNull: true
   },
   sprintStartDate: {
     type: DataTypes.DATE,

@@ -3,6 +3,8 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { Project, ProjectJoin, User, AppState } from '@/models'
 
+const MAX_JOINS = 2
+
 // POST toggle join (join if not joined, leave if already joined)
 export async function POST(request: Request) {
   try {
@@ -10,16 +12,6 @@ export async function POST(request: Request) {
 
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    // Check app state
-    const appState = await AppState.findByPk('singleton')
-
-    if (appState && appState.stage !== 'RECEIVING_SUBMISSIONS' && !appState.testMode) {
-      return NextResponse.json(
-        { error: 'Joining projects is closed' },
-        { status: 403 }
-      )
     }
 
     const body = await request.json()
@@ -36,7 +28,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Project not found' }, { status: 404 })
     }
 
-    // Check if already joined
+    // Check if already joined this project
     const existingJoin = await ProjectJoin.findOne({
       where: {
         userId: session.user.id,
@@ -48,6 +40,34 @@ export async function POST(request: Request) {
       // Toggle off - remove join
       await existingJoin.destroy()
       return NextResponse.json({ joined: false })
+    }
+
+    // Count how many projects user has already joined
+    const currentJoinCount = await ProjectJoin.count({
+      where: { userId: session.user.id },
+    })
+
+    if (currentJoinCount >= MAX_JOINS) {
+      // Return the list of currently joined projects so the frontend can offer a swap
+      const currentJoins = await ProjectJoin.findAll({
+        where: { userId: session.user.id },
+        include: [
+          {
+            model: Project,
+            as: 'project',
+            attributes: ['id', 'name'],
+          },
+        ],
+      })
+
+      return NextResponse.json({
+        error: `You can join a maximum of ${MAX_JOINS} projects. Leave one to join another.`,
+        maxReached: true,
+        currentJoins: currentJoins.map((j) => {
+          const data = j.toJSON() as { projectId: string; project?: { id: string; name: string } }
+          return { projectId: data.projectId, projectName: data.project?.name || 'Unknown' }
+        }),
+      }, { status: 409 })
     }
 
     // Create new join

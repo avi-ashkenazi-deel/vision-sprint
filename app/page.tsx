@@ -82,6 +82,12 @@ export default function HomePage() {
   const [filter, setFilter] = useState<ProjectType | 'ALL'>('ALL')
   const [sortBy, setSortBy] = useState<'votes' | 'name' | 'date' | 'creator' | 'myVote'>('votes')
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
+
+  // Join swap modal state
+  const [showSwapModal, setShowSwapModal] = useState(false)
+  const [swapTargetProjectId, setSwapTargetProjectId] = useState<string | null>(null)
+  const [currentJoins, setCurrentJoins] = useState<{ projectId: string; projectName: string }[]>([])
+  const [swapping, setSwapping] = useState(false)
   
   // Sprint state
   const [myTeams, setMyTeams] = useState<Team[]>([])
@@ -184,6 +190,43 @@ export default function HomePage() {
     })
     if (res.ok) {
       fetchProjects()
+    } else if (res.status === 409) {
+      const data = await res.json()
+      if (data.maxReached) {
+        setSwapTargetProjectId(projectId)
+        setCurrentJoins(data.currentJoins)
+        setShowSwapModal(true)
+      }
+    }
+  }
+
+  const handleSwapJoin = async (leaveProjectId: string) => {
+    setSwapping(true)
+    try {
+      // First leave the old project
+      const leaveRes = await fetch('/api/joins', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ projectId: leaveProjectId }),
+      })
+      if (leaveRes.ok) {
+        // Then join the new project
+        const joinRes = await fetch('/api/joins', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ projectId: swapTargetProjectId }),
+        })
+        if (joinRes.ok) {
+          fetchProjects()
+        }
+      }
+    } catch (error) {
+      console.error('Failed to swap join:', error)
+    } finally {
+      setSwapping(false)
+      setShowSwapModal(false)
+      setSwapTargetProjectId(null)
+      setCurrentJoins([])
     }
   }
 
@@ -195,6 +238,9 @@ export default function HomePage() {
       setSortOrder(column === 'votes' || column === 'myVote' ? 'desc' : 'asc')
     }
   }
+
+  // Count how many projects current user has joined
+  const userJoinCount = projects.filter((p) => p.hasJoined).length
 
   const filteredProjects = filter === 'ALL'
     ? projects
@@ -954,7 +1000,7 @@ export default function HomePage() {
                     )}
                   </span>
                 </th>
-                {session && isSubmissionsOpen && (
+                {session && (
                   <th className="text-right px-6 py-4 text-sm font-medium text-gray-400">
                     Actions
                   </th>
@@ -1030,7 +1076,7 @@ export default function HomePage() {
                       {new Date(project.updatedAt).toLocaleDateString()}
                     </span>
                   </td>
-                  {session && isSubmissionsOpen && (
+                  {session && (
                     <td className="px-6 py-4 text-right" onClick={(e) => e.stopPropagation()}>
                       <div className="flex items-center justify-end gap-2">
                         {/* Like button */}
@@ -1062,7 +1108,7 @@ export default function HomePage() {
                               ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
                               : 'bg-white/5 text-gray-300 border border-white/10 hover:bg-emerald-500/10 hover:border-emerald-500/30 hover:text-emerald-300'
                           }`}
-                          title={project.hasJoined ? 'Leave project' : 'Join this project'}
+                          title={project.hasJoined ? 'Leave project' : `Join this project (${userJoinCount}/2 joined)`}
                         >
                           <svg 
                             className="w-4 h-4" 
@@ -1100,6 +1146,90 @@ export default function HomePage() {
           </button>
         </div>
       )}
+
+      {/* Join Swap Modal */}
+      {showSwapModal && (
+        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
+          <div className="glass-card p-6 max-w-md w-full">
+            <h3 className="text-lg font-semibold text-white mb-2">Maximum Projects Joined</h3>
+            <p className="text-sm text-gray-400 mb-4">
+              You can only join up to 2 projects. Choose one to leave in order to join the new one:
+            </p>
+            <div className="space-y-2 mb-6">
+              {currentJoins.map((join) => (
+                <button
+                  key={join.projectId}
+                  onClick={() => handleSwapJoin(join.projectId)}
+                  disabled={swapping}
+                  className="w-full text-left p-3 rounded-lg border border-white/10 bg-white/5 hover:bg-red-500/10 hover:border-red-500/30 transition-all flex items-center justify-between group disabled:opacity-50"
+                >
+                  <span className="text-white font-medium truncate">{join.projectName}</span>
+                  <span className="text-xs text-gray-500 group-hover:text-red-400 transition-colors flex-shrink-0 ml-2">
+                    {swapping ? 'Swapping...' : 'Leave & swap'}
+                  </span>
+                </button>
+              ))}
+            </div>
+            <button
+              onClick={() => {
+                setShowSwapModal(false)
+                setSwapTargetProjectId(null)
+                setCurrentJoins([])
+              }}
+              className="btn-secondary w-full"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Submission Countdown Timer - bottom left */}
+      {isSubmissionsOpen && appState?.submissionEndDate && (
+        <SubmissionCountdown endDate={new Date(appState.submissionEndDate)} />
+      )}
+    </div>
+  )
+}
+
+// Compact countdown component for bottom-left corner
+function SubmissionCountdown({ endDate }: { endDate: Date }) {
+  const [timeLeft, setTimeLeft] = useState(calcTimeLeft())
+
+  function calcTimeLeft() {
+    const diff = new Date(endDate).getTime() - Date.now()
+    if (diff <= 0) return { days: 0, hours: 0, minutes: 0, seconds: 0, isOver: true }
+    return {
+      days: Math.floor(diff / (1000 * 60 * 60 * 24)),
+      hours: Math.floor((diff / (1000 * 60 * 60)) % 24),
+      minutes: Math.floor((diff / 1000 / 60) % 60),
+      seconds: Math.floor((diff / 1000) % 60),
+      isOver: false,
+    }
+  }
+
+  useEffect(() => {
+    const timer = setInterval(() => setTimeLeft(calcTimeLeft()), 1000)
+    return () => clearInterval(timer)
+  }, [endDate])
+
+  if (timeLeft.isOver) return null
+
+  const parts: string[] = []
+  if (timeLeft.days > 0) parts.push(`${timeLeft.days}d`)
+  parts.push(`${String(timeLeft.hours).padStart(2, '0')}h`)
+  parts.push(`${String(timeLeft.minutes).padStart(2, '0')}m`)
+  parts.push(`${String(timeLeft.seconds).padStart(2, '0')}s`)
+
+  return (
+    <div className="fixed bottom-4 left-4 z-40 glass-card px-4 py-3 flex items-center gap-3 shadow-lg border border-white/10">
+      <div className="flex items-center gap-2">
+        <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+        <span className="text-xs text-gray-400">Submissions close in</span>
+      </div>
+      <span className="font-mono text-sm font-semibold text-white">
+        {parts.join(' ')}
+      </span>
     </div>
   )
 }

@@ -40,7 +40,7 @@ export function ProjectForm({ mode, initialData, restrictedEdit }: ProjectFormPr
 
   // Google Drive video URL validation
   const isValidGoogleDriveVideoUrl = (url: string) => {
-    if (!url) return true // Empty is valid (optional field)
+    if (!url) return false
     return url.includes('drive.google.com') || url.includes('docs.google.com/file')
   }
 
@@ -146,40 +146,18 @@ export function ProjectForm({ mode, initialData, restrictedEdit }: ProjectFormPr
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       {/* Security Warning Banner */}
-      <div className="p-4 rounded-lg bg-amber-500/10 border border-amber-500/30">
+      <div className="p-4 rounded-lg bg-amber-50 border border-amber-300 dark:bg-amber-500/10 dark:border-amber-500/30">
         <div className="flex items-start gap-3">
-          <svg className="w-5 h-5 text-amber-400 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="w-5 h-5 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
           </svg>
           <div>
-            <p className="font-medium text-amber-400">Important Security Notice</p>
-            <p className="text-sm text-amber-300/80 mt-1">
+            <p className="font-medium text-amber-800 dark:text-amber-400">Important Security Notice</p>
+            <p className="text-sm text-amber-700 dark:text-amber-300/80 mt-1">
               Do not include any proprietary business logic, confidential code, or sensitive company information in your submissions. 
               Use your Google Doc for detailed descriptions.
             </p>
           </div>
-        </div>
-      </div>
-
-      {/* Google Doc Template Link */}
-      <div className="p-4 rounded-lg bg-purple-500/10 border border-purple-500/30">
-        <div className="flex items-center gap-3">
-          <svg className="w-5 h-5 text-purple-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-          </svg>
-          <div className="flex-1">
-            <p className="text-sm text-purple-300">
-              <strong>Before you start:</strong> Create a copy of our project description template
-            </p>
-          </div>
-          <a
-            href="https://docs.google.com/document/d/1TEMPLATE_ID_HERE/copy"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="btn-secondary text-sm whitespace-nowrap"
-          >
-            Open Template
-          </a>
         </div>
       </div>
 
@@ -213,268 +191,281 @@ export function ProjectForm({ mode, initialData, restrictedEdit }: ProjectFormPr
         </div>
       </div>
 
-      {/* Project name */}
-      <div>
-        <label htmlFor="name" className="block text-sm font-medium text-gray-300 mb-2">
-          Project Name *
-        </label>
-        <input
-          type="text"
-          id="name"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          disabled={restrictedEdit}
-          required={!restrictedEdit}
-          placeholder="Enter a catchy name for your project"
-          className="input-field disabled:opacity-50 disabled:cursor-not-allowed"
-        />
-      </div>
-
-      {/* Description - Google Doc URL */}
-      <div>
-        <label htmlFor="description" className="block text-sm font-medium text-gray-300 mb-2">
-          Project Description (Google Doc URL) *
-        </label>
-        <input
-          type="url"
-          id="description"
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          disabled={restrictedEdit}
-          required={!restrictedEdit}
-          placeholder="https://docs.google.com/document/d/..."
-          className={`input-field disabled:opacity-50 disabled:cursor-not-allowed ${
-            description && !isValidGoogleDocUrl(description) ? 'border-red-500/50' : ''
-          }`}
-        />
-        {description && !isValidGoogleDocUrl(description) && (
-          <p className="text-xs text-red-400 mt-2">
-            Please enter a valid Google Docs URL (e.g., https://docs.google.com/document/d/...)
-          </p>
-        )}
-        <p className="text-xs text-gray-500 mt-2">
-          Create a Google Doc using the template and paste the shareable link here. Make sure the doc is set to &quot;Anyone with the link can view&quot;.
-        </p>
-        
-        {/* Google Doc Preview */}
-        {description && isValidGoogleDocUrl(description) && (
-          <div className="mt-4 rounded-lg overflow-hidden border border-white/10">
-            <div className="bg-white/5 px-3 py-2 text-xs text-gray-400 flex items-center justify-between">
-              <span>Document Preview</span>
-              <a 
-                href={description} 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="text-purple-400 hover:underline"
-              >
-                Open in new tab
-              </a>
-            </div>
-            <iframe
-              src={getGoogleDocEmbedUrl(description)}
-              width="100%"
-              height="400"
-              className="bg-white"
-              title="Google Doc Preview"
-            />
-          </div>
-        )}
-      </div>
-
-      {/* Project type */}
-      <div>
-        <label className="block text-sm font-medium text-gray-300 mb-3">
-          Project Type *
-        </label>
-        <div className="grid grid-cols-2 gap-3">
-          {projectTypes.map((type) => (
-            <button
-              key={type}
-              type="button"
-              disabled={restrictedEdit}
-              onClick={() => setProjectType(type)}
-              className={`p-4 rounded-xl border text-left transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
-                projectType === type
-                  ? `${PROJECT_TYPE_COLORS[type]} border-current`
-                  : 'border-white/10 hover:border-white/20 text-gray-400'
-              }`}
-            >
-              <span className="font-medium">{PROJECT_TYPE_LABELS[type]}</span>
-              <p className="text-xs mt-1 opacity-70">
-                {type === 'MOONSHOT' && 'Ambitious, game-changing ideas'}
-                {type === 'SMALL_FEATURE' && 'Quick wins and improvements'}
-                {type === 'DELIGHT' && 'User experience enhancements'}
-                {type === 'EFFICIENCY' && 'Process and workflow optimizations'}
-              </p>
-            </button>
-          ))}
+      {/* ── Required Fields Section ── */}
+      <div className="glass-card p-6 space-y-6">
+        <div className="flex items-center gap-2 mb-2">
+          <div className="w-1.5 h-1.5 rounded-full bg-purple-400" />
+          <h3 className="text-sm font-semibold uppercase tracking-wider text-gray-400">Required</h3>
         </div>
-      </div>
 
-      {/* Department / Team */}
-      <div>
-        <label htmlFor="department" className="block text-sm font-medium text-gray-300 mb-2">
-          Department / Team
-          <span className="text-gray-500 ml-2">(optional)</span>
-        </label>
-        <input
-          type="text"
-          id="department"
-          value={department}
-          onChange={(e) => setDepartment(e.target.value)}
-          disabled={restrictedEdit}
-          placeholder="e.g., Engineering, Product, Sales, Marketing..."
-          className="input-field disabled:opacity-50 disabled:cursor-not-allowed"
-        />
-        <p className="text-xs text-gray-500 mt-2">
-          Specify which department or team this project is for.
-        </p>
-      </div>
-
-      {/* Related Vision */}
-      <div>
-        <label htmlFor="visionId" className="block text-sm font-medium text-gray-300 mb-2">
-          Related Vision / KPI
-          <span className="text-gray-500 ml-2">(optional)</span>
-        </label>
-        <div className="flex gap-3">
-          <select
-            id="visionId"
-            value={visionId || ''}
-            onChange={(e) => setVisionId(e.target.value || null)}
-            disabled={restrictedEdit}
-            className="input-field flex-1 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <option value="">Select a vision to align with...</option>
-            {loadingVisions ? (
-              <option disabled>Loading visions...</option>
-            ) : (
-              visions.map((vision) => (
-                <option key={vision.id} value={vision.id}>
-                  [{vision.area}] {vision.title}
-                </option>
-              ))
-            )}
-          </select>
-          <Link
-            href="/visions"
-            target="_blank"
-            className="btn-secondary text-sm whitespace-nowrap"
-          >
-            Browse Visions
-          </Link>
-        </div>
-        {visionId && visions.find(v => v.id === visionId) && (
-          <div className="mt-2 p-3 rounded-lg bg-white/5 border border-white/10">
-            <div className="flex items-center gap-2 mb-1">
-              <span className={`badge text-xs ${VISION_AREA_COLORS[visions.find(v => v.id === visionId)?.area || 'Other']}`}>
-                {visions.find(v => v.id === visionId)?.area}
-              </span>
-              <span className="font-medium text-sm">{visions.find(v => v.id === visionId)?.title}</span>
-            </div>
-            {visions.find(v => v.id === visionId)?.kpis && (
-              <p className="text-xs text-gray-400">
-                KPIs: {visions.find(v => v.id === visionId)?.kpis}
-              </p>
-            )}
-          </div>
-        )}
-        <p className="text-xs text-gray-500 mt-2">
-          Link your project to a company vision or KPI to help others understand its strategic alignment.
-        </p>
-      </div>
-
-      {/* Pitch video URL (optional) - Google Drive only */}
-      <div>
-        <label htmlFor="pitchVideoUrl" className="block text-sm font-medium text-gray-300 mb-2">
-          Pitch Video (Google Drive)
-          <span className="text-gray-500 ml-2">(optional)</span>
-        </label>
-        <input
-          type="url"
-          id="pitchVideoUrl"
-          value={pitchVideoUrl}
-          onChange={(e) => setPitchVideoUrl(e.target.value)}
-          disabled={restrictedEdit}
-          placeholder="https://drive.google.com/file/d/..."
-          className={`input-field disabled:opacity-50 disabled:cursor-not-allowed ${
-            pitchVideoUrl && !isValidGoogleDriveVideoUrl(pitchVideoUrl) ? 'border-red-500/50' : ''
-          }`}
-        />
-        {pitchVideoUrl && !isValidGoogleDriveVideoUrl(pitchVideoUrl) && (
-          <p className="text-xs text-red-400 mt-2">
-            Please use a Google Drive video link. YouTube links are not allowed for security reasons.
-          </p>
-        )}
-        <p className="text-xs text-gray-500 mt-2">
-          Upload your video to Google Drive, set it to &quot;Anyone with the link can view&quot;, and paste the link here.
-        </p>
-        
-        {/* Google Drive Video Preview */}
-        {pitchVideoUrl && isValidGoogleDriveVideoUrl(pitchVideoUrl) && getGoogleDriveEmbedUrl(pitchVideoUrl) && (
-          <div className="mt-4 rounded-lg overflow-hidden border border-white/10">
-            <div className="bg-white/5 px-3 py-2 text-xs text-gray-400 flex items-center justify-between">
-              <span>Video Preview</span>
-              <a 
-                href={pitchVideoUrl} 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="text-purple-400 hover:underline"
-              >
-                Open in new tab
-              </a>
-            </div>
-            <iframe
-              src={getGoogleDriveEmbedUrl(pitchVideoUrl)}
-              width="100%"
-              height="300"
-              className="bg-black"
-              title="Video Preview"
-              allow="autoplay"
-            />
-          </div>
-        )}
-      </div>
-
-      {/* Doc/Figma link (optional) */}
-      <div>
-        <label htmlFor="docLink" className="block text-sm font-medium text-gray-300 mb-2">
-          Document / Figma Link
-          <span className="text-gray-500 ml-2">(optional)</span>
-        </label>
-        <input
-          type="url"
-          id="docLink"
-          value={docLink}
-          onChange={(e) => setDocLink(e.target.value)}
-          placeholder="https://docs.google.com/... or https://figma.com/..."
-          className="input-field"
-        />
-      </div>
-
-      {/* Slack channel */}
-      <div>
-        <label htmlFor="slackChannel" className="block text-sm font-medium text-gray-300 mb-2">
-          Slack Channel *
-        </label>
-        <div className="relative">
-          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">#</span>
+        {/* Project name */}
+        <div>
+          <label htmlFor="name" className="block text-sm font-medium text-gray-300 mb-2">
+            Project Name *
+          </label>
           <input
             type="text"
-            id="slackChannel"
-            value={slackChannel}
-            onChange={(e) => setSlackChannel(e.target.value.toLowerCase().replace(/\s+/g, '-'))}
-            required
-            placeholder="VS26Q1-your-project-name"
-            className="input-field pl-7"
+            id="name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            disabled={restrictedEdit}
+            required={!restrictedEdit}
+            placeholder="Enter a catchy name for your project"
+            className="input-field disabled:opacity-50 disabled:cursor-not-allowed"
           />
         </div>
-        <p className="text-xs text-gray-500 mt-2">
-          📝 <strong>Naming convention:</strong> VS26Q1-your-project-name
-        </p>
-        <p className="text-xs text-gray-400 mt-1">
-          Allows people to contact you about your project now and in the future.
-        </p>
+
+        {/* Pitch Video - Google Drive (mandatory) */}
+        <div>
+          <label htmlFor="pitchVideoUrl" className="block text-sm font-medium text-gray-300 mb-2">
+            Pitch Video (Google Drive) *
+          </label>
+          <input
+            type="url"
+            id="pitchVideoUrl"
+            value={pitchVideoUrl}
+            onChange={(e) => setPitchVideoUrl(e.target.value)}
+            disabled={restrictedEdit}
+            required={!restrictedEdit}
+            placeholder="https://drive.google.com/file/d/..."
+            className={`input-field disabled:opacity-50 disabled:cursor-not-allowed ${
+              pitchVideoUrl && !isValidGoogleDriveVideoUrl(pitchVideoUrl) ? 'border-red-500/50' : ''
+            }`}
+          />
+          {pitchVideoUrl && !isValidGoogleDriveVideoUrl(pitchVideoUrl) && (
+            <p className="text-xs text-red-400 mt-2">
+              Please use a Google Drive video link. YouTube links are not allowed for security reasons.
+            </p>
+          )}
+          <p className="text-xs text-gray-500 mt-2">
+            Upload your pitch video to Google Drive (max 4 minutes), set it to &quot;Anyone with the link can view&quot;, and paste the link here.
+          </p>
+          
+          {/* Google Drive Video Preview */}
+          {pitchVideoUrl && isValidGoogleDriveVideoUrl(pitchVideoUrl) && getGoogleDriveEmbedUrl(pitchVideoUrl) && (
+            <div className="mt-4 rounded-lg overflow-hidden border border-white/10">
+              <div className="bg-white/5 px-3 py-2 text-xs text-gray-400 flex items-center justify-between">
+                <span>Video Preview</span>
+                <a 
+                  href={pitchVideoUrl} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="text-purple-400 hover:underline"
+                >
+                  Open in new tab
+                </a>
+              </div>
+              <iframe
+                src={getGoogleDriveEmbedUrl(pitchVideoUrl)}
+                width="100%"
+                height="300"
+                className="bg-black"
+                title="Video Preview"
+                allow="autoplay"
+              />
+            </div>
+          )}
+        </div>
+
+        {/* Description - Google Doc URL */}
+        <div>
+          <label htmlFor="description" className="block text-sm font-medium text-gray-300 mb-2">
+            Project Description (Google Doc URL) *
+          </label>
+          <input
+            type="url"
+            id="description"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            disabled={restrictedEdit}
+            required={!restrictedEdit}
+            placeholder="https://docs.google.com/document/d/..."
+            className={`input-field disabled:opacity-50 disabled:cursor-not-allowed ${
+              description && !isValidGoogleDocUrl(description) ? 'border-red-500/50' : ''
+            }`}
+          />
+          {description && !isValidGoogleDocUrl(description) && (
+            <p className="text-xs text-red-400 mt-2">
+              Please enter a valid Google Docs URL (e.g., https://docs.google.com/document/d/...)
+            </p>
+          )}
+          <p className="text-xs text-gray-500 mt-2">
+            Use our <a href="https://docs.google.com/document/d/1MC50GSMPplfOdYrv90hSu5Ugn3nPqZNTh0dk2ZU8bv0/copy" target="_blank" rel="noopener noreferrer" className="text-purple-400 hover:underline">description template</a> to create your doc, then paste the shareable link here. Make sure the doc is set to &quot;Anyone with the link can view&quot;.
+          </p>
+          
+          {/* Google Doc Preview */}
+          {description && isValidGoogleDocUrl(description) && (
+            <div className="mt-4 rounded-lg overflow-hidden border border-white/10">
+              <div className="bg-white/5 px-3 py-2 text-xs text-gray-400 flex items-center justify-between">
+                <span>Document Preview</span>
+                <a 
+                  href={description} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="text-purple-400 hover:underline"
+                >
+                  Open in new tab
+                </a>
+              </div>
+              <iframe
+                src={getGoogleDocEmbedUrl(description)}
+                width="100%"
+                height="400"
+                className="bg-white"
+                title="Google Doc Preview"
+              />
+            </div>
+          )}
+        </div>
+
+        {/* Project type */}
+        <div>
+          <label className="block text-sm font-medium text-gray-300 mb-3">
+            Project Type *
+          </label>
+          <div className="grid grid-cols-2 gap-3">
+            {projectTypes.map((type) => (
+              <button
+                key={type}
+                type="button"
+                disabled={restrictedEdit}
+                onClick={() => setProjectType(type)}
+                className={`p-4 rounded-xl border text-left transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
+                  projectType === type
+                    ? `${PROJECT_TYPE_COLORS[type]} border-current`
+                    : 'border-white/10 hover:border-white/20 text-gray-400'
+                }`}
+              >
+                <span className="font-medium">{PROJECT_TYPE_LABELS[type]}</span>
+                <p className="text-xs mt-1 opacity-70">
+                  {type === 'MOONSHOT' && 'Ambitious, game-changing ideas'}
+                  {type === 'SMALL_FEATURE' && 'Quick wins and improvements'}
+                  {type === 'DELIGHT' && 'User experience enhancements'}
+                  {type === 'EFFICIENCY' && 'Process and workflow optimizations'}
+                </p>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Slack channel */}
+        <div>
+          <label htmlFor="slackChannel" className="block text-sm font-medium text-gray-300 mb-2">
+            Slack Channel *
+          </label>
+          <div className="relative">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">#</span>
+            <input
+              type="text"
+              id="slackChannel"
+              value={slackChannel}
+              onChange={(e) => setSlackChannel(e.target.value.toLowerCase().replace(/\s+/g, '-'))}
+              required
+              placeholder="VS26Q1-your-project-name"
+              className="input-field pl-7"
+            />
+          </div>
+          <p className="text-xs text-gray-500 mt-2">
+            Naming convention: VS26Q1-your-project-name
+          </p>
+          <p className="text-xs text-gray-400 mt-1">
+            Allows people to contact you about your project now and in the future.
+          </p>
+        </div>
+      </div>
+
+      {/* ── Optional Fields Section ── */}
+      <div className="glass-card p-6 space-y-6">
+        <div className="flex items-center gap-2 mb-2">
+          <div className="w-1.5 h-1.5 rounded-full bg-gray-500" />
+          <h3 className="text-sm font-semibold uppercase tracking-wider text-gray-500">Optional</h3>
+        </div>
+
+        {/* Department / Team */}
+        <div>
+          <label htmlFor="department" className="block text-sm font-medium text-gray-300 mb-2">
+            Department / Team
+          </label>
+          <input
+            type="text"
+            id="department"
+            value={department}
+            onChange={(e) => setDepartment(e.target.value)}
+            disabled={restrictedEdit}
+            placeholder="e.g., Engineering, Product, Sales, Marketing..."
+            className="input-field disabled:opacity-50 disabled:cursor-not-allowed"
+          />
+          <p className="text-xs text-gray-500 mt-2">
+            Specify which department or team this project is for.
+          </p>
+        </div>
+
+        {/* Related Vision */}
+        <div>
+          <label htmlFor="visionId" className="block text-sm font-medium text-gray-300 mb-2">
+            Related Vision / KPI
+          </label>
+          <div className="flex gap-3">
+            <select
+              id="visionId"
+              value={visionId || ''}
+              onChange={(e) => setVisionId(e.target.value || null)}
+              disabled={restrictedEdit}
+              className="input-field flex-1 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <option value="">Select a vision to align with...</option>
+              {loadingVisions ? (
+                <option disabled>Loading visions...</option>
+              ) : (
+                visions.map((vision) => (
+                  <option key={vision.id} value={vision.id}>
+                    [{vision.area}] {vision.title}
+                  </option>
+                ))
+              )}
+            </select>
+            <Link
+              href="/visions"
+              target="_blank"
+              className="btn-secondary text-sm whitespace-nowrap"
+            >
+              Browse Visions
+            </Link>
+          </div>
+          {visionId && visions.find(v => v.id === visionId) && (
+            <div className="mt-2 p-3 rounded-lg bg-white/5 border border-white/10">
+              <div className="flex items-center gap-2 mb-1">
+                <span className={`badge text-xs ${VISION_AREA_COLORS[visions.find(v => v.id === visionId)?.area || 'Other']}`}>
+                  {visions.find(v => v.id === visionId)?.area}
+                </span>
+                <span className="font-medium text-sm">{visions.find(v => v.id === visionId)?.title}</span>
+              </div>
+              {visions.find(v => v.id === visionId)?.kpis && (
+                <p className="text-xs text-gray-400">
+                  KPIs: {visions.find(v => v.id === visionId)?.kpis}
+                </p>
+              )}
+            </div>
+          )}
+          <p className="text-xs text-gray-500 mt-2">
+            Link your project to a company vision or KPI to help others understand its strategic alignment.
+          </p>
+        </div>
+
+        {/* Doc/Figma link */}
+        <div>
+          <label htmlFor="docLink" className="block text-sm font-medium text-gray-300 mb-2">
+            Document / Figma Link
+          </label>
+          <input
+            type="url"
+            id="docLink"
+            value={docLink}
+            onChange={(e) => setDocLink(e.target.value)}
+            placeholder="https://docs.google.com/... or https://figma.com/..."
+            className="input-field"
+          />
+        </div>
       </div>
 
       {/* Submit button */}

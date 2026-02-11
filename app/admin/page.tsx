@@ -44,6 +44,7 @@ export default function AdminPage() {
   
   const [stage, setStage] = useState<AppStage>('RECEIVING_SUBMISSIONS')
   const [testMode, setTestMode] = useState(false)
+  const [submissionEndDate, setSubmissionEndDate] = useState('')
   const [sprintStartDate, setSprintStartDate] = useState('')
   const [sprintEndDate, setSprintEndDate] = useState('')
   const [saving, setSaving] = useState(false)
@@ -70,6 +71,9 @@ export default function AdminPage() {
     if (appState) {
       setStage(appState.stage as AppStage)
       setTestMode(appState.testMode)
+      if (appState.submissionEndDate) {
+        setSubmissionEndDate(new Date(appState.submissionEndDate).toISOString().slice(0, 16))
+      }
       if (appState.sprintStartDate) {
         setSprintStartDate(new Date(appState.sprintStartDate).toISOString().slice(0, 16))
       }
@@ -158,6 +162,7 @@ export default function AdminPage() {
         body: JSON.stringify({
           stage,
           testMode,
+          submissionEndDate: submissionEndDate ? new Date(submissionEndDate).toISOString() : null,
           sprintStartDate: sprintStartDate ? new Date(sprintStartDate).toISOString() : null,
           sprintEndDate: sprintEndDate ? new Date(sprintEndDate).toISOString() : null,
         }),
@@ -339,8 +344,19 @@ export default function AdminPage() {
             </div>
           </div>
 
-          {/* Sprint dates */}
-          <div className="grid grid-cols-2 gap-4 mb-6">
+          {/* Dates */}
+          <div className="grid grid-cols-3 gap-4 mb-6">
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Submissions Deadline
+              </label>
+              <input
+                type="datetime-local"
+                value={submissionEndDate}
+                onChange={(e) => setSubmissionEndDate(e.target.value)}
+                className="input-field"
+              />
+            </div>
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-2">
                 Sprint Start
