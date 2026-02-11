@@ -366,9 +366,40 @@ export default function ProjectDetailPage({
           {/* Description */}
           <div className="glass-card p-6">
             <h2 className="text-lg font-semibold mb-4">Description</h2>
-            <div className="prose max-w-none">
-              <ReactMarkdown>{project.description}</ReactMarkdown>
-            </div>
+            {project.description.includes('docs.google.com/document') ? (
+              <div>
+                <div className="rounded-lg overflow-hidden border border-white/10">
+                  <div className="bg-white/5 px-3 py-2 text-xs text-gray-400 flex items-center justify-between">
+                    <span>Project Document</span>
+                    <a 
+                      href={project.description} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="text-purple-400 hover:underline"
+                    >
+                      Open in new tab
+                    </a>
+                  </div>
+                  <iframe
+                    src={project.description.replace(/\/edit.*$/, '/preview').replace(/\/view.*$/, '/preview').includes('/preview') 
+                      ? project.description.replace(/\/edit.*$/, '/preview').replace(/\/view.*$/, '/preview')
+                      : (() => {
+                          const match = project.description.match(/docs\.google\.com\/document\/d\/([a-zA-Z0-9_-]+)/)
+                          return match ? `https://docs.google.com/document/d/${match[1]}/preview` : project.description
+                        })()
+                    }
+                    width="100%"
+                    height="600"
+                    className="bg-white"
+                    title="Project Description Document"
+                  />
+                </div>
+              </div>
+            ) : (
+              <div className="prose max-w-none break-words overflow-hidden">
+                <ReactMarkdown>{project.description}</ReactMarkdown>
+              </div>
+            )}
           </div>
 
           {/* Pitch video */}
