@@ -76,7 +76,7 @@ interface Team {
 export default function HomePage() {
   const { data: session, status } = useSession()
   const router = useRouter()
-  const { appState } = useAppState()
+  const { appState, loading: appStateLoading } = useAppState()
   const [projects, setProjects] = useState<Project[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -901,13 +901,15 @@ export default function HomePage() {
         <div>
           <h1 className="text-3xl font-bold text-white">Project Ideas</h1>
           <p className="text-gray-400 mt-1">
-            {isSubmissionsOpen
-              ? 'Vote for your favorite ideas or submit your own'
-              : 'Submissions are currently closed'}
+            {appStateLoading
+              ? 'Loading...'
+              : isSubmissionsOpen
+                ? 'Vote for your favorite ideas or submit your own'
+                : 'Submissions are currently closed'}
           </p>
         </div>
 
-        {isSubmissionsOpen && session && (
+        {(isSubmissionsOpen || appStateLoading) && session && (
           <Link href="/projects/new" className="btn-primary whitespace-nowrap">
             New submission
           </Link>

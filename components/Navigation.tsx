@@ -44,13 +44,12 @@ export function Navigation() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-14">
           {/* Logo */}
-          <Link href="/" className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-[var(--accent-purple)] flex items-center justify-center">
-              <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-              </svg>
-            </div>
-            <span className="font-semibold text-[var(--foreground)]">VisionSprint</span>
+          <Link href="/" className="flex items-center">
+            <img
+              src="/logo.svg"
+              alt="VisionSprint"
+              className="h-9 w-auto object-contain"
+            />
           </Link>
 
           {/* Center nav items - only show when logged in */}
@@ -59,8 +58,8 @@ export function Navigation() {
               href="/"
               className={`px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
                 pathname === '/'
-                  ? 'text-[var(--foreground)] bg-[var(--background)]'
-                  : 'text-[var(--foreground-secondary)] hover:text-[var(--foreground)] hover:bg-[var(--background)]'
+                  ? 'text-white bg-white/15'
+                  : 'text-gray-400 hover:text-white hover:bg-white/10'
               }`}
             >
               Home
@@ -69,8 +68,8 @@ export function Navigation() {
               href="/visions"
               className={`px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
                 pathname === '/visions'
-                  ? 'text-[var(--foreground)] bg-[var(--background)]'
-                  : 'text-[var(--foreground-secondary)] hover:text-[var(--foreground)] hover:bg-[var(--background)]'
+                  ? 'text-white bg-white/15'
+                  : 'text-gray-400 hover:text-white hover:bg-white/10'
               }`}
             >
               Visions
@@ -80,8 +79,8 @@ export function Navigation() {
                 href="/admin"
                 className={`px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
                   pathname === '/admin'
-                    ? 'text-[var(--foreground)] bg-[var(--background)]'
-                    : 'text-[var(--foreground-secondary)] hover:text-[var(--foreground)] hover:bg-[var(--background)]'
+                    ? 'text-white bg-white/15'
+                    : 'text-gray-400 hover:text-white hover:bg-white/10'
                 }`}
               >
                 Admin

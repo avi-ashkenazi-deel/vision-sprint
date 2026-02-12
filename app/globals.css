@@ -44,9 +44,9 @@
   --badge-gray-text: #4b5563;
 }
 
-/* Dark theme */
+/* Dark theme — system preference OR .dark class override */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not(.light) {
     --background: #0f0f14;
     --background-secondary: #1a1a24;
     --foreground: #f0f0f5;
@@ -61,7 +61,7 @@
     --accent-amber-light: #2e2a1a;
     --accent-red-light: #2e1a1a;
     --border-light: #2a2a3a;
-    --nav-bg: #1a1a24;
+    --nav-bg: #000000;
     
     /* Badge colors - dark mode */
     --badge-purple-bg: #2d2640;
@@ -79,6 +79,45 @@
     --badge-gray-bg: #2a2a3a;
     --badge-gray-text: #9898b0;
   }
+}
+
+/* Dark theme — manual .dark class override */
+:root.dark {
+  --background: #0f0f14;
+  --background-secondary: #1a1a24;
+  --foreground: #f0f0f5;
+  --foreground-secondary: #9898b0;
+  --card-bg: #1a1a24;
+  --card-border: #2a2a3a;
+  --card-shadow: 0 1px 3px rgba(0, 0, 0, 0.2), 0 4px 12px rgba(0, 0, 0, 0.15);
+  --accent-purple: #a78bfa;
+  --accent-purple-light: #2d2640;
+  --accent-purple-hover: #8b5cf6;
+  --accent-emerald-light: #1a2e25;
+  --accent-amber-light: #2e2a1a;
+  --accent-red-light: #2e1a1a;
+  --border-light: #2a2a3a;
+  --nav-bg: #000000;
+  
+  --badge-purple-bg: #2d2640;
+  --badge-purple-text: #a78bfa;
+  --badge-blue-bg: #1e2a40;
+  --badge-blue-text: #60a5fa;
+  --badge-emerald-bg: #1a2e25;
+  --badge-emerald-text: #34d399;
+  --badge-amber-bg: #2e2a1a;
+  --badge-amber-text: #fbbf24;
+  --badge-pink-bg: #2e1a2a;
+  --badge-pink-text: #f472b6;
+  --badge-red-bg: #2e1a1a;
+  --badge-red-text: #f87171;
+  --badge-gray-bg: #2a2a3a;
+  --badge-gray-text: #9898b0;
+}
+
+/* Light theme — manual .light class override */
+:root.light {
+  color-scheme: light;
 }
 
 @theme inline {

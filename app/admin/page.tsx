@@ -290,9 +290,64 @@ export default function AdminPage() {
     )
   }
 
+  const [themeOverride, setThemeOverride] = useState<'system' | 'light' | 'dark'>('system')
+
+  const toggleTheme = () => {
+    const html = document.documentElement
+    if (themeOverride === 'system' || themeOverride === 'dark') {
+      // Switch to light
+      html.classList.remove('dark')
+      html.classList.add('light')
+      html.style.colorScheme = 'light'
+      setThemeOverride('light')
+    } else {
+      // Switch to dark
+      html.classList.remove('light')
+      html.classList.add('dark')
+      html.style.colorScheme = 'dark'
+      setThemeOverride('dark')
+    }
+  }
+
+  const resetTheme = () => {
+    const html = document.documentElement
+    html.classList.remove('light', 'dark')
+    html.style.colorScheme = ''
+    setThemeOverride('system')
+  }
+
   return (
     <div className="max-w-6xl mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold text-white mb-8">Admin Dashboard</h1>
+      <div className="flex items-center justify-between mb-8">
+        <h1 className="text-3xl font-bold text-white">Admin Dashboard</h1>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={toggleTheme}
+            className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white/10 border border-white/10 text-sm text-gray-300 hover:bg-white/15 hover:text-white transition-colors"
+          >
+            {themeOverride === 'light' ? (
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+              </svg>
+            ) : (
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+              </svg>
+            )}
+            {themeOverride === 'system' ? 'Switch to Light' : themeOverride === 'light' ? 'Switch to Dark' : 'Switch to Light'}
+          </button>
+          {themeOverride !== 'system' && (
+            <button
+              type="button"
+              onClick={resetTheme}
+              className="px-3 py-2 rounded-lg text-sm text-gray-500 hover:text-gray-300 transition-colors"
+            >
+              Reset to System
+            </button>
+          )}
+        </div>
+      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Stage Controls */}

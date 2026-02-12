@@ -4,6 +4,7 @@ import { signIn, getProviders } from 'next-auth/react'
 import { useSearchParams } from 'next/navigation'
 import { Suspense, useState, useEffect } from 'react'
 import { ClothBackground } from '@/components/ClothBackground'
+import { KineticText } from '@/components/KineticText'
 
 type Provider = {
   id: string
@@ -33,18 +34,23 @@ function SignInContent() {
   const hasGoogleProvider = providers?.google
 
   return (
-    <div className="min-h-[calc(100vh-5rem)] flex items-center justify-center px-4 relative">
+    <div className="min-h-[calc(100vh-5rem)] flex flex-col items-center justify-center px-4 relative">
       <ClothBackground />
+
+      {/* Kinetic Typography */}
+      <div className="w-full max-w-xl relative z-10 mb-2">
+        <KineticText />
+      </div>
+
       <div className="p-8 w-full max-w-md text-center relative z-10 rounded-2xl bg-black/90 backdrop-blur-sm border border-white/[0.12] shadow-[0_0_30px_rgba(255,255,255,0.03)]">
         {/* Logo */}
-        <div className="w-14 h-14 mx-auto mb-6 rounded-xl bg-[var(--accent-purple)] flex items-center justify-center">
-          <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-          </svg>
+        <div className="mx-auto mb-6">
+          <img
+            src="/logo-square.svg"
+            alt="VisionSprint"
+            className="mx-auto w-20 h-20"
+          />
         </div>
-
-        <h1 className="text-2xl font-semibold text-[var(--foreground)] mb-2">Welcome to VisionSprint</h1>
-        <p className="text-[var(--foreground-secondary)] mb-8">Sign in to submit and vote on hackathon projects</p>
 
         {error && (
           <div className="mb-6 p-4 rounded-lg bg-[var(--badge-red-bg)] border border-[var(--accent-red)] text-[var(--badge-red-text)] text-sm">
@@ -110,9 +116,6 @@ function SignInContent() {
           </div>
         )}
 
-        <p className="text-xs text-[var(--foreground-secondary)]">
-          By signing in, you agree to participate in the hackathon vision sprint
-        </p>
       </div>
     </div>
   )

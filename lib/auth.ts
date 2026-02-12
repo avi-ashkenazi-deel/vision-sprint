@@ -27,6 +27,13 @@ export const authOptions: NextAuthOptions = {
           GoogleProvider({
             clientId: process.env.GOOGLE_CLIENT_ID!,
             clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+            authorization: {
+              params: {
+                scope: 'openid email profile https://www.googleapis.com/auth/drive.metadata.readonly',
+                access_type: 'offline',
+                prompt: 'consent',
+              },
+            },
           }),
         ]
       : []),
@@ -94,12 +101,19 @@ export const authOptions: NextAuthOptions = {
           session.user.discipline = (dbUser?.discipline as 'DEV' | 'PRODUCT' | 'DATA' | 'DESIGNER') ?? null
           session.user.accessVerified = dbUser?.accessVerified ?? false
         }
+        // Pass access token to session for Drive API calls
+        session.accessToken = token?.accessToken as string | undefined
       }
       return session
     },
-    async jwt({ token, user }) {
+    async jwt({ token, user, account }) {
       if (user) {
         token.sub = user.id
+      }
+      // Save Google access token on initial sign-in
+      if (account?.provider === 'google') {
+        token.accessToken = account.access_token
+        token.refreshToken = account.refresh_token
       }
       return token
     },
@@ -125,5 +139,13 @@ declare module 'next-auth' {
       accessVerified: boolean
       discipline: 'DEV' | 'PRODUCT' | 'DATA' | 'DESIGNER' | null
     }
+    accessToken?: string
+  }
+}
+
+declare module 'next-auth/jwt' {
+  interface JWT {
+    accessToken?: string
+    refreshToken?: string
   }
 }

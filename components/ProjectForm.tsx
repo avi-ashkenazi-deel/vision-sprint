@@ -87,6 +87,8 @@ export function ProjectForm({ mode, initialData, restrictedEdit }: ProjectFormPr
   const [docLinks, setDocLinks] = useState<string[]>(
     initialData?.docLink ? initialData.docLink.split(',').map(s => s.trim()).filter(Boolean) : ['']
   )
+  const [videoCheckLoading, setVideoCheckLoading] = useState(false)
+  const [videoCheckResult, setVideoCheckResult] = useState<{ valid: boolean; error?: string; durationFormatted?: string; warning?: string } | null>(null)
 
   // Fetch visions for the dropdown
   useEffect(() => {
@@ -145,6 +147,25 @@ export function ProjectForm({ mode, initialData, restrictedEdit }: ProjectFormPr
     }
   }
 
+  const handleCheckVideo = async () => {
+    if (!pitchVideoUrl || !isValidGoogleDriveVideoUrl(pitchVideoUrl)) return
+    setVideoCheckLoading(true)
+    setVideoCheckResult(null)
+    try {
+      const res = await fetch('/api/projects/check-video', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ videoUrl: pitchVideoUrl }),
+      })
+      const data = await res.json()
+      setVideoCheckResult(data)
+    } catch {
+      setVideoCheckResult({ valid: false, error: 'Failed to check video duration' })
+    } finally {
+      setVideoCheckLoading(false)
+    }
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
@@ -195,14 +216,14 @@ export function ProjectForm({ mode, initialData, restrictedEdit }: ProjectFormPr
     <form onSubmit={handleSubmit} className="space-y-6">
       {/* Security Warning Banner — dismissible */}
       {showSecurityNotice && (
-        <div className="p-4 rounded-lg bg-amber-50 border border-amber-300 dark:bg-amber-500/10 dark:border-amber-500/30">
+        <div className="p-4 rounded-lg" style={{ background: 'var(--badge-amber-bg)', border: '1px solid var(--accent-amber)' }}>
           <div className="flex items-start gap-3">
-            <svg className="w-5 h-5 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-5 h-5 mt-0.5 flex-shrink-0" style={{ color: 'var(--badge-amber-text)' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
             </svg>
             <div className="flex-1">
-              <p className="font-medium text-amber-800 dark:text-amber-400">Important Security Notice</p>
-              <p className="text-sm text-amber-700 dark:text-amber-300/80 mt-1">
+              <p className="font-medium" style={{ color: 'var(--badge-amber-text)' }}>Important Security Notice</p>
+              <p className="text-sm mt-1" style={{ color: 'var(--badge-amber-text)', opacity: 0.85 }}>
                 Do not include any proprietary business logic, confidential code, or sensitive company information in your submissions. 
                 Use your Google Doc for detailed descriptions.
               </p>
@@ -210,7 +231,8 @@ export function ProjectForm({ mode, initialData, restrictedEdit }: ProjectFormPr
             <button
               type="button"
               onClick={() => setShowSecurityNotice(false)}
-              className="text-amber-600 dark:text-amber-400 hover:text-amber-800 dark:hover:text-amber-300 transition-colors flex-shrink-0"
+              className="transition-colors flex-shrink-0 hover:opacity-70"
+              style={{ color: 'var(--badge-amber-text)' }}
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -256,6 +278,9 @@ export function ProjectForm({ mode, initialData, restrictedEdit }: ProjectFormPr
           <div className="w-1.5 h-1.5 rounded-full bg-purple-400" />
           <h3 className="text-sm font-semibold uppercase tracking-wider text-gray-400">Required</h3>
         </div>
+        <p className="text-xs text-gray-400 -mt-1 mb-2">
+          Remember to set links to anyone in Deel can view.
+        </p>
 
         {/* Project name */}
         <div>
@@ -283,7 +308,7 @@ export function ProjectForm({ mode, initialData, restrictedEdit }: ProjectFormPr
             type="url"
             id="pitchVideoUrl"
             value={pitchVideoUrl}
-            onChange={(e) => setPitchVideoUrl(e.target.value)}
+            onChange={(e) => { setPitchVideoUrl(e.target.value); setVideoCheckResult(null) }}
             disabled={restrictedEdit}
             required={!restrictedEdit}
             placeholder="https://drive.google.com/file/d/..."
@@ -296,9 +321,33 @@ export function ProjectForm({ mode, initialData, restrictedEdit }: ProjectFormPr
               Please use a Google Drive video link. YouTube links are not allowed for security reasons.
             </p>
           )}
-          <p className="text-xs text-gray-500 mt-2">
-            Upload your pitch video to Google Drive (max 4 minutes), set it to &quot;Anyone with the link can view&quot;, and paste the link here.
-          </p>
+          <div className="flex items-center gap-2 mt-2">
+            <p className="text-xs text-gray-500 flex-1">
+              Videos should be maximum 4 minutes.
+            </p>
+            {pitchVideoUrl && isValidGoogleDriveVideoUrl(pitchVideoUrl) && (
+              <button
+                type="button"
+                onClick={handleCheckVideo}
+                disabled={videoCheckLoading}
+                className="text-xs px-3 py-1 rounded-lg bg-purple-500/20 text-purple-400 border border-purple-500/30 hover:bg-purple-500/30 transition-all disabled:opacity-50 whitespace-nowrap"
+              >
+                {videoCheckLoading ? 'Checking...' : 'Check Duration'}
+              </button>
+            )}
+          </div>
+          {videoCheckResult && (
+            <div className={`text-xs mt-2 p-2 rounded-lg ${
+              videoCheckResult.valid 
+                ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' 
+                : 'bg-red-500/10 text-red-400 border border-red-500/20'
+            }`}>
+              {videoCheckResult.valid 
+                ? `✓ Video duration: ${videoCheckResult.durationFormatted || 'OK'}${videoCheckResult.warning ? ` — ${videoCheckResult.warning}` : ''}`
+                : `✗ ${videoCheckResult.error}`
+              }
+            </div>
+          )}
           
           {/* Google Drive Video Preview */}
           {pitchVideoUrl && isValidGoogleDriveVideoUrl(pitchVideoUrl) && getGoogleDriveEmbedUrl(pitchVideoUrl) && (
@@ -349,7 +398,7 @@ export function ProjectForm({ mode, initialData, restrictedEdit }: ProjectFormPr
             </p>
           )}
           <p className="text-xs text-gray-500 mt-2">
-            Use our <a href="https://docs.google.com/document/d/1MC50GSMPplfOdYrv90hSu5Ugn3nPqZNTh0dk2ZU8bv0/copy" target="_blank" rel="noopener noreferrer" className="text-purple-400 hover:underline">description template</a> to create your doc, then paste the shareable link here. Make sure the doc is set to &quot;Anyone with the link can view&quot;.
+            Use the <a href="https://docs.google.com/document/d/1MC50GSMPplfOdYrv90hSu5Ugn3nPqZNTh0dk2ZU8bv0/copy" target="_blank" rel="noopener noreferrer" className="text-purple-400 hover:underline">Product template</a>.
           </p>
           
           {/* Google Doc Preview */}
@@ -391,12 +440,12 @@ export function ProjectForm({ mode, initialData, restrictedEdit }: ProjectFormPr
                 onClick={() => setProjectType(type)}
                 className={`p-4 rounded-xl border text-left transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
                   projectType === type
-                    ? `${PROJECT_TYPE_COLORS[type]} border-current`
-                    : 'border-white/10 hover:border-white/20 text-gray-400'
+                    ? 'bg-purple-100 text-[#603786] border-purple-400 dark:bg-purple-500/20 dark:text-purple-300 dark:border-purple-500/30'
+                    : 'border-gray-300 hover:border-gray-400 text-gray-600 dark:border-white/10 dark:hover:border-white/20 dark:text-gray-400'
                 }`}
               >
                 <span className="font-medium">{PROJECT_TYPE_LABELS[type]}</span>
-                <p className="text-xs mt-1 opacity-70">
+                <p className={`text-xs mt-1 opacity-70 ${projectType === type ? 'text-[#72469B] dark:text-inherit' : ''}`}>
                   {type === 'MOONSHOT' && 'Ambitious, game-changing ideas'}
                   {type === 'SMALL_FEATURE' && 'Quick wins and improvements'}
                   {type === 'DELIGHT' && 'User experience enhancements'}
@@ -428,7 +477,7 @@ export function ProjectForm({ mode, initialData, restrictedEdit }: ProjectFormPr
             Naming convention: VS26Q1-your-project-name
           </p>
           <p className="text-xs text-gray-400 mt-1">
-            Allows people to contact you about your project now and in the future.
+            Create a Slack channel with this name. It allows people to contact you about your project now and in the future.
           </p>
         </div>
       </div>

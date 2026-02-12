@@ -292,12 +292,12 @@ export default function ProjectDetailPage({
                 onClick={project.hasVoted ? handleUnvote : handleVote}
                 className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl font-medium transition-all ${
                   project.hasVoted
-                    ? 'bg-pink-500/20 text-pink-300 border border-pink-500/30'
-                    : 'bg-white/5 text-gray-300 border border-white/10 hover:bg-pink-500/10 hover:border-pink-500/30 hover:text-pink-300'
+                    ? 'bg-pink-100 text-pink-700 border border-pink-300 dark:bg-pink-500/20 dark:text-pink-300 dark:border-pink-500/30'
+                    : 'bg-gray-100 text-gray-600 border border-gray-300 hover:bg-pink-50 hover:border-pink-300 hover:text-pink-700 dark:bg-white/5 dark:text-gray-300 dark:border-white/10 dark:hover:bg-pink-500/10 dark:hover:border-pink-500/30 dark:hover:text-pink-300'
                 }`}
               >
                 <svg 
-                  className={`w-5 h-5 ${project.hasVoted ? 'fill-pink-400' : ''}`} 
+                  className={`w-5 h-5 ${project.hasVoted ? 'fill-pink-600 dark:fill-pink-400' : ''}`} 
                   fill={project.hasVoted ? 'currentColor' : 'none'} 
                   stroke="currentColor" 
                   viewBox="0 0 24 24"
@@ -313,8 +313,8 @@ export default function ProjectDetailPage({
                 onClick={handleJoin}
                 className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl font-medium transition-all ${
                   project.hasJoined
-                    ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-                    : 'bg-white/5 text-gray-300 border border-white/10 hover:bg-emerald-500/10 hover:border-emerald-500/30 hover:text-emerald-300'
+                    ? 'bg-emerald-100 text-emerald-700 border border-emerald-300 dark:bg-emerald-500/20 dark:text-emerald-300 dark:border-emerald-500/30'
+                    : 'bg-gray-100 text-gray-600 border border-gray-300 hover:bg-emerald-50 hover:border-emerald-300 hover:text-emerald-700 dark:bg-white/5 dark:text-gray-300 dark:border-white/10 dark:hover:bg-emerald-500/10 dark:hover:border-emerald-500/30 dark:hover:text-emerald-300'
                 }`}
               >
                 <svg 

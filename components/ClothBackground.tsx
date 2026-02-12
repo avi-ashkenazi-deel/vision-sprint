@@ -240,6 +240,9 @@ export function ClothBackground() {
     window.addEventListener('mousemove', onMouseMove)
 
     // ---- Physics step ----
+    const RESTORE_STRENGTH = 0.003  // gentle spring back to original position
+    const MAX_DRIFT = 12            // max distance a particle can drift from origin
+
     function simulate() {
       windTime += 0.018
 
@@ -256,6 +259,23 @@ export function ClothBackground() {
           const wind = getWind(windTime, x / CLOTH_W, y / CLOTH_H)
           wind.multiplyScalar(falloff)
           p.addForce(wind)
+
+          // Restoring force — gently pull back toward original position
+          // This prevents the cloth from sagging out of view over time
+          const drift = new THREE.Vector3().subVectors(p.original, p.position)
+          const driftLen = drift.length()
+          if (driftLen > 0.1) {
+            // Stronger restore the further it drifts
+            const restoreScale = RESTORE_STRENGTH * Math.min(driftLen / MAX_DRIFT, 1.0)
+            drift.normalize().multiplyScalar(restoreScale)
+            p.addForce(drift)
+          }
+
+          // Hard clamp — never let particles drift too far
+          if (driftLen > MAX_DRIFT) {
+            const dir = new THREE.Vector3().subVectors(p.position, p.original).normalize()
+            p.position.copy(p.original).add(dir.multiplyScalar(MAX_DRIFT))
+          }
         }
       }
 

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { Project, User, Vote, Team, TeamMember, Submission, Vision, ProjectJoin, Reaction, AppState } from '@/models'
+import { validateVideoDuration } from '@/lib/google-drive'
 
 // GET single project
 export async function GET(
@@ -163,6 +164,17 @@ export async function PUT(
 
     // Full edit during submissions phase
     const { name, description, pitchVideoUrl, docLink, projectType, slackChannel, businessRationale, visionId, department } = body
+
+    // Validate video duration if a pitch video URL is provided
+    if (pitchVideoUrl && session.accessToken) {
+      const videoCheck = await validateVideoDuration(pitchVideoUrl, session.accessToken)
+      if (!videoCheck.valid) {
+        return NextResponse.json(
+          { error: videoCheck.error },
+          { status: 400 }
+        )
+      }
+    }
 
     await project.update({
       ...(name && { name }),
