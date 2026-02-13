@@ -1005,19 +1005,21 @@ export default function HomePage() {
                 <th className="text-center px-4 py-4 text-sm font-medium text-gray-400 hidden md:table-cell w-20">
                   Joining
                 </th>
-                <th 
-                  className="text-right px-6 py-4 text-sm font-medium text-gray-400 hidden sm:table-cell cursor-pointer hover:text-white transition-colors"
-                  onClick={() => handleSort('date')}
-                >
-                  <span className="flex items-center justify-end gap-1">
-                    Updated
-                    {sortBy === 'date' && (
-                      <svg className={`w-4 h-4 ${sortOrder === 'desc' ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
-                      </svg>
-                    )}
-                  </span>
-                </th>
+                {session?.user?.isAdmin && (
+                  <th 
+                    className="text-right px-6 py-4 text-sm font-medium text-gray-400 hidden sm:table-cell cursor-pointer hover:text-white transition-colors"
+                    onClick={() => handleSort('date')}
+                  >
+                    <span className="flex items-center justify-end gap-1">
+                      Updated
+                      {sortBy === 'date' && (
+                        <svg className={`w-4 h-4 ${sortOrder === 'desc' ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                        </svg>
+                      )}
+                    </span>
+                  </th>
+                )}
                 {session && (
                   <th className="text-right px-6 py-4 text-sm font-medium text-gray-400">
                     Actions
@@ -1088,11 +1090,13 @@ export default function HomePage() {
                       )}
                     </div>
                   </td>
-                  <td className="px-6 py-4 text-right hidden sm:table-cell">
-                    <span className="text-sm text-gray-500">
-                      {new Date(project.updatedAt).toLocaleDateString()}
-                    </span>
-                  </td>
+                  {session?.user?.isAdmin && (
+                    <td className="px-6 py-4 text-right hidden sm:table-cell">
+                      <span className="text-sm text-gray-500">
+                        {new Date(project.updatedAt).toLocaleDateString()}
+                      </span>
+                    </td>
+                  )}
                   {session && (
                     <td className="px-6 py-4 text-right" onClick={(e) => e.stopPropagation()}>
                       <div className="flex items-center justify-end gap-2">

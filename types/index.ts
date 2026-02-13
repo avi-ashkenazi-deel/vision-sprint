@@ -84,9 +84,9 @@ export interface UserWithDetails extends User {
 
 export const PROJECT_TYPE_LABELS: Record<ProjectType, string> = {
   MOONSHOT: 'Moon Shot',
-  SMALL_FEATURE: 'Small Feature',
+  SMALL_FEATURE: 'Feature',
   DELIGHT: 'Delight',
-  EFFICIENCY: 'Efficiency Improvement',
+  EFFICIENCY: 'Efficiency',
 }
 
 export const PROJECT_TYPE_COLORS: Record<ProjectType, string> = {
