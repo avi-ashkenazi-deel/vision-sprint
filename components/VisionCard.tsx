@@ -65,10 +65,8 @@ export function VisionCard({ vision, onLikeToggle }: VisionCardProps) {
         <button
           onClick={handleLikeToggle}
           disabled={!session?.user?.id || liking}
-          className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-all ${
-            hasLiked
-              ? 'bg-pink-500/20 text-pink-300 border border-pink-500/30'
-              : 'bg-white/5 text-gray-400 border border-white/10 hover:border-pink-500/30 hover:text-pink-300'
+          className={`flex items-center gap-2 text-sm font-medium ${
+            hasLiked ? 'btn-like-active' : 'btn-like'
           } disabled:opacity-50 disabled:cursor-not-allowed`}
         >
           <svg

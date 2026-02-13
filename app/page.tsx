@@ -1099,10 +1099,8 @@ export default function HomePage() {
                         {/* Like button */}
                         <button
                           onClick={() => project.hasVoted ? handleUnvote(project.id) : handleVote(project.id)}
-                          className={`flex items-center justify-center gap-1 px-3 py-2 rounded-lg text-sm font-medium transition-all ${
-                            project.hasVoted
-                              ? 'bg-pink-500/20 text-pink-300 border border-pink-500/30'
-                              : 'bg-white/5 text-gray-300 border border-white/10 hover:bg-pink-500/10 hover:border-pink-500/30 hover:text-pink-300'
+                          className={`flex items-center justify-center gap-1 text-sm font-medium ${
+                            project.hasVoted ? 'btn-like-active' : 'btn-like'
                           }`}
                           title={project.hasVoted ? 'Unlike' : 'Like this project'}
                         >
@@ -1120,10 +1118,8 @@ export default function HomePage() {
                         {/* Join button */}
                         <button
                           onClick={() => handleJoin(project.id)}
-                          className={`flex items-center justify-center gap-1 px-3 py-2 rounded-lg text-sm font-medium transition-all ${
-                            project.hasJoined
-                              ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-                              : 'bg-white/5 text-gray-300 border border-white/10 hover:bg-emerald-500/10 hover:border-emerald-500/30 hover:text-emerald-300'
+                          className={`flex items-center justify-center gap-1 text-sm font-medium ${
+                            project.hasJoined ? 'btn-join-active' : 'btn-join'
                           }`}
                           title={project.hasJoined ? 'Leave project' : `Join this project (${userJoinCount}/2 joined)`}
                         >

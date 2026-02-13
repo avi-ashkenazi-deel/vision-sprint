@@ -81,7 +81,7 @@ export function ConfettiCelebration({ onComplete }: ConfettiCelebrationProps) {
         {showButton && (
           <button
             onClick={onComplete}
-            className="px-6 py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white font-medium rounded-xl hover:from-purple-600 hover:to-pink-600 transition-all shadow-lg shadow-purple-500/30 animate-fadeIn"
+            className="btn-primary px-6 py-3 text-lg animate-fadeIn"
           >
             🏠 Back to Showcase
           </button>

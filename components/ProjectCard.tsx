@@ -212,10 +212,8 @@ export function ProjectCard({
                 onClick={handleLike}
                 disabled={isLiking}
                 className={`
-                  flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all
-                  ${localHasVoted 
-                    ? 'bg-pink-500/20 text-pink-300 border border-pink-500/30' 
-                    : 'bg-white/5 text-gray-300 border border-white/10 hover:bg-white/10'}
+                  flex items-center gap-1.5 text-sm font-medium
+                  ${localHasVoted ? 'btn-like-active' : 'btn-like'}
                   ${isLiking ? 'opacity-50 cursor-not-allowed' : ''}
                 `}
               >
@@ -235,10 +233,8 @@ export function ProjectCard({
                 onClick={handleJoin}
                 disabled={isJoining}
                 className={`
-                  flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all
-                  ${localHasJoined 
-                    ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' 
-                    : 'bg-white/5 text-gray-300 border border-white/10 hover:bg-white/10'}
+                  flex items-center gap-1.5 text-sm font-medium
+                  ${localHasJoined ? 'btn-join-active' : 'btn-join'}
                   ${isJoining ? 'opacity-50 cursor-not-allowed' : ''}
                 `}
               >

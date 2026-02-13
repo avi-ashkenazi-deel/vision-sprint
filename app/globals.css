@@ -164,40 +164,337 @@ body {
   box-shadow: 0 4px 20px rgba(124, 58, 237, 0.08);
 }
 
-/* Button styles - Deel style */
+/* Button styles - Shimmer gradient border effect */
 .btn-primary {
-  background: var(--accent-purple);
-  color: white;
+  border: none;
+  border-radius: 10px;
+  background: linear-gradient(to right, #6d28d9, #e9d5ff, #6d28d9, #6d28d9, #e9d5ff, #6d28d9);
+  background-size: 250%;
+  background-position: left;
+  color: #e9d5ff;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background-position 1s, transform 0.15s;
+  overflow: hidden;
   font-weight: 500;
   padding: 0.625rem 1.25rem;
-  border-radius: 8px;
-  transition: all 0.15s ease;
-  border: none;
-  cursor: pointer;
   font-size: 0.875rem;
+  isolation: isolate;
+}
+
+.btn-primary::before {
+  content: "";
+  position: absolute;
+  width: 97%;
+  height: 90%;
+  border-radius: 8px;
+  background-color: rgba(0, 0, 0, 0.842);
+  transition: background-position 1s;
+  z-index: -1;
 }
 
 .btn-primary:hover {
-  background: var(--accent-purple-hover);
-  box-shadow: 0 4px 12px rgba(124, 58, 237, 0.25);
+  background-position: right;
+  box-shadow: 0 0 20px rgba(124, 58, 237, 0.4);
+}
+
+.btn-primary:hover::before {
+  background-position: right;
+}
+
+.btn-primary:active {
+  transform: scale(0.95);
+}
+
+.btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
 }
 
 .btn-secondary {
-  background: var(--background-secondary);
+  border: none;
+  border-radius: 10px;
+  background: linear-gradient(to right, #4c1d95, #c4b5fd, #4c1d95, #4c1d95, #c4b5fd, #4c1d95);
+  background-size: 250%;
+  background-position: left;
   color: var(--foreground);
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background-position 1s, transform 0.15s;
+  overflow: hidden;
   font-weight: 500;
   padding: 0.625rem 1.25rem;
-  border-radius: 8px;
-  border: 1px solid var(--card-border);
-  transition: all 0.15s ease;
-  cursor: pointer;
   font-size: 0.875rem;
+  isolation: isolate;
+}
+
+.btn-secondary::before {
+  content: "";
+  position: absolute;
+  width: 97%;
+  height: 90%;
+  border-radius: 8px;
+  background-color: rgba(0, 0, 0, 0.842);
+  transition: background-position 1s;
+  z-index: -1;
 }
 
 .btn-secondary:hover {
-  background: var(--background);
-  border-color: var(--accent-purple);
+  background-position: right;
+  box-shadow: 0 0 16px rgba(124, 58, 237, 0.3);
   color: var(--accent-purple);
+}
+
+.btn-secondary:hover::before {
+  background-position: right;
+}
+
+.btn-secondary:active {
+  transform: scale(0.95);
+}
+
+.btn-secondary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Like button shimmer variants */
+.btn-like {
+  border: none;
+  border-radius: 10px;
+  background: linear-gradient(to right, #4c1d95, #c4b5fd, #4c1d95, #4c1d95, #c4b5fd, #4c1d95);
+  background-size: 250%;
+  background-position: left;
+  color: #d1d5db;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background-position 1s, transform 0.15s;
+  overflow: hidden;
+  font-weight: 500;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+  isolation: isolate;
+}
+
+.btn-like::before {
+  content: "";
+  position: absolute;
+  width: 96%;
+  height: 88%;
+  border-radius: 8px;
+  background-color: rgba(0, 0, 0, 0.842);
+  transition: background-position 1s;
+  z-index: -1;
+}
+
+.btn-like:hover {
+  background-position: right;
+  box-shadow: 0 0 16px rgba(236, 72, 153, 0.25);
+  color: #fda4af;
+}
+
+.btn-like:hover::before {
+  background-position: right;
+}
+
+.btn-like:active {
+  transform: scale(0.95);
+}
+
+.btn-like-active {
+  border: none;
+  border-radius: 10px;
+  background: linear-gradient(to right, #9d174d, #fda4af, #9d174d, #9d174d, #fda4af, #9d174d);
+  background-size: 250%;
+  background-position: left;
+  color: #fda4af;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background-position 1s, transform 0.15s;
+  overflow: hidden;
+  font-weight: 500;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+  isolation: isolate;
+}
+
+.btn-like-active::before {
+  content: "";
+  position: absolute;
+  width: 96%;
+  height: 88%;
+  border-radius: 8px;
+  background-color: rgba(10, 0, 5, 0.85);
+  transition: background-position 1s;
+  z-index: -1;
+}
+
+.btn-like-active:hover {
+  background-position: right;
+  box-shadow: 0 0 20px rgba(236, 72, 153, 0.35);
+}
+
+.btn-like-active:hover::before {
+  background-position: right;
+}
+
+.btn-like-active:active {
+  transform: scale(0.95);
+}
+
+/* Join button shimmer variants */
+.btn-join {
+  border: none;
+  border-radius: 10px;
+  background: linear-gradient(to right, #4c1d95, #c4b5fd, #4c1d95, #4c1d95, #c4b5fd, #4c1d95);
+  background-size: 250%;
+  background-position: left;
+  color: #d1d5db;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background-position 1s, transform 0.15s;
+  overflow: hidden;
+  font-weight: 500;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+  isolation: isolate;
+}
+
+.btn-join::before {
+  content: "";
+  position: absolute;
+  width: 96%;
+  height: 88%;
+  border-radius: 8px;
+  background-color: rgba(0, 0, 0, 0.842);
+  transition: background-position 1s;
+  z-index: -1;
+}
+
+.btn-join:hover {
+  background-position: right;
+  box-shadow: 0 0 16px rgba(16, 185, 129, 0.25);
+  color: #6ee7b7;
+}
+
+.btn-join:hover::before {
+  background-position: right;
+}
+
+.btn-join:active {
+  transform: scale(0.95);
+}
+
+.btn-join-active {
+  border: none;
+  border-radius: 10px;
+  background: linear-gradient(to right, #065f46, #6ee7b7, #065f46, #065f46, #6ee7b7, #065f46);
+  background-size: 250%;
+  background-position: left;
+  color: #6ee7b7;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background-position 1s, transform 0.15s;
+  overflow: hidden;
+  font-weight: 500;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+  isolation: isolate;
+}
+
+.btn-join-active::before {
+  content: "";
+  position: absolute;
+  width: 96%;
+  height: 88%;
+  border-radius: 8px;
+  background-color: rgba(0, 5, 5, 0.85);
+  transition: background-position 1s;
+  z-index: -1;
+}
+
+.btn-join-active:hover {
+  background-position: right;
+  box-shadow: 0 0 20px rgba(16, 185, 129, 0.35);
+}
+
+.btn-join-active:hover::before {
+  background-position: right;
+}
+
+.btn-join-active:active {
+  transform: scale(0.95);
+}
+
+/* Danger button shimmer variant */
+.btn-danger {
+  border: none;
+  border-radius: 10px;
+  background: linear-gradient(to right, #991b1b, #fca5a5, #991b1b, #991b1b, #fca5a5, #991b1b);
+  background-size: 250%;
+  background-position: left;
+  color: #fca5a5;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background-position 1s, transform 0.15s;
+  overflow: hidden;
+  font-weight: 500;
+  padding: 0.625rem 1.25rem;
+  font-size: 0.875rem;
+  isolation: isolate;
+}
+
+.btn-danger::before {
+  content: "";
+  position: absolute;
+  width: 97%;
+  height: 90%;
+  border-radius: 8px;
+  background-color: rgba(0, 0, 0, 0.842);
+  transition: background-position 1s;
+  z-index: -1;
+}
+
+.btn-danger:hover {
+  background-position: right;
+  box-shadow: 0 0 20px rgba(239, 68, 68, 0.35);
+}
+
+.btn-danger:hover::before {
+  background-position: right;
+}
+
+.btn-danger:active {
+  transform: scale(0.95);
+}
+
+.btn-danger:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
 }
 
 /* Input styles - Deel style */

@@ -290,14 +290,12 @@ export default function ProjectDetailPage({
               {/* Like button */}
               <button
                 onClick={project.hasVoted ? handleUnvote : handleVote}
-                className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl font-medium transition-all ${
-                  project.hasVoted
-                    ? 'bg-pink-100 text-pink-700 border border-pink-300 dark:bg-pink-500/20 dark:text-pink-300 dark:border-pink-500/30'
-                    : 'bg-gray-100 text-gray-600 border border-gray-300 hover:bg-pink-50 hover:border-pink-300 hover:text-pink-700 dark:bg-white/5 dark:text-gray-300 dark:border-white/10 dark:hover:bg-pink-500/10 dark:hover:border-pink-500/30 dark:hover:text-pink-300'
+                className={`flex items-center justify-center gap-2 font-medium ${
+                  project.hasVoted ? 'btn-like-active' : 'btn-like'
                 }`}
               >
                 <svg 
-                  className={`w-5 h-5 ${project.hasVoted ? 'fill-pink-600 dark:fill-pink-400' : ''}`} 
+                  className={`w-5 h-5 ${project.hasVoted ? 'fill-pink-400' : ''}`} 
                   fill={project.hasVoted ? 'currentColor' : 'none'} 
                   stroke="currentColor" 
                   viewBox="0 0 24 24"
@@ -311,10 +309,8 @@ export default function ProjectDetailPage({
               {/* Join button */}
               <button
                 onClick={handleJoin}
-                className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl font-medium transition-all ${
-                  project.hasJoined
-                    ? 'bg-emerald-100 text-emerald-700 border border-emerald-300 dark:bg-emerald-500/20 dark:text-emerald-300 dark:border-emerald-500/30'
-                    : 'bg-gray-100 text-gray-600 border border-gray-300 hover:bg-emerald-50 hover:border-emerald-300 hover:text-emerald-700 dark:bg-white/5 dark:text-gray-300 dark:border-white/10 dark:hover:bg-emerald-500/10 dark:hover:border-emerald-500/30 dark:hover:text-emerald-300'
+                className={`flex items-center justify-center gap-2 font-medium ${
+                  project.hasJoined ? 'btn-join-active' : 'btn-join'
                 }`}
               >
                 <svg 
@@ -350,7 +346,7 @@ export default function ProjectDetailPage({
           {canDelete && (
             <button
               onClick={() => setShowDeleteConfirm(true)}
-              className="btn-secondary text-red-400 border-red-500/30 hover:bg-red-500/10"
+              className="btn-danger"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -634,7 +630,7 @@ export default function ProjectDetailPage({
               <button
                 onClick={handleDelete}
                 disabled={deleting}
-                className="btn-primary bg-red-500 hover:bg-red-600"
+                className="btn-danger"
               >
                 {deleting ? 'Deleting...' : 'Delete'}
               </button>
