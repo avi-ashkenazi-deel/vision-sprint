@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import { Project, ProjectJoin, User, AppState } from '@/models'
+import { Project, ProjectJoin, User, AppState, Sprint } from '@/models'
 
 const MAX_JOINS = 2
 
@@ -42,9 +42,24 @@ export async function POST(request: Request) {
       return NextResponse.json({ joined: false })
     }
 
-    // Count how many projects user has already joined
+    // Count how many projects user has already joined in the current sprint
+    const appState = await AppState.findByPk('singleton')
+    const currentSprintId = appState?.currentSprintId
+
+    let joinCountWhere: Record<string, unknown> = { userId: session.user.id }
+    if (currentSprintId) {
+      // Only count joins for projects in the current sprint
+      joinCountWhere = { userId: session.user.id }
+    }
+
     const currentJoinCount = await ProjectJoin.count({
       where: { userId: session.user.id },
+      include: currentSprintId ? [{
+        model: Project,
+        as: 'project',
+        where: { sprintId: currentSprintId },
+        attributes: [],
+      }] : [],
     })
 
     if (currentJoinCount >= MAX_JOINS) {

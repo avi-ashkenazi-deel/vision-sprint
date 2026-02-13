@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import { Project, User, Vote, AppState } from '@/models'
+import { Project, User, Vote, AppState, Sprint } from '@/models'
 
 // POST create vote
 export async function POST(request: Request) {
@@ -12,10 +12,18 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Check app state
-    const appState = await AppState.findByPk('singleton')
+    // Check app state via current sprint (with pre-migration fallback)
+    let appState: any
+    try {
+      appState = await AppState.findByPk('singleton', {
+        include: [{ model: Sprint, as: 'currentSprint' }],
+      })
+    } catch {
+      appState = await AppState.findByPk('singleton')
+    }
+    const currentStage = appState?.currentSprint?.stage || appState?.stage
 
-    if (appState && appState.stage !== 'RECEIVING_SUBMISSIONS' && !appState.testMode) {
+    if (appState && currentStage !== 'RECEIVING_SUBMISSIONS' && !appState.testMode) {
       return NextResponse.json(
         { error: 'Voting is closed' },
         { status: 403 }
@@ -80,10 +88,18 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Check app state
-    const appState = await AppState.findByPk('singleton')
+    // Check app state via current sprint (with pre-migration fallback)
+    let appState: any
+    try {
+      appState = await AppState.findByPk('singleton', {
+        include: [{ model: Sprint, as: 'currentSprint' }],
+      })
+    } catch {
+      appState = await AppState.findByPk('singleton')
+    }
+    const currentStage = appState?.currentSprint?.stage || appState?.stage
 
-    if (appState && appState.stage !== 'RECEIVING_SUBMISSIONS' && !appState.testMode) {
+    if (appState && currentStage !== 'RECEIVING_SUBMISSIONS' && !appState.testMode) {
       return NextResponse.json(
         { error: 'Voting changes are closed' },
         { status: 403 }

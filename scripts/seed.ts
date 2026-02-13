@@ -5,6 +5,7 @@ import {
   Project, 
   Vote, 
   AppState,
+  Sprint,
   Discipline,
   ProjectType,
   AppStage
@@ -55,6 +56,27 @@ async function main() {
   })
   console.log('Created/found user:', carol.name)
 
+  // Create or update sprint and app state
+  const [sprint] = await Sprint.findOrCreate({
+    where: { name: 'Sprint 1' },
+    defaults: {
+      name: 'Sprint 1',
+      stage: AppStage.RECEIVING_SUBMISSIONS,
+      sprintStartDate: new Date('2026-03-02T09:00:00Z'),
+      sprintEndDate: new Date('2026-03-03T18:00:00Z'),
+    },
+  })
+
+  await AppState.findOrCreate({
+    where: { id: 'singleton' },
+    defaults: {
+      id: 'singleton',
+      currentSprintId: sprint.id,
+      testMode: false,
+    },
+  })
+  console.log('Created/found sprint and app state')
+
   // Create sample projects
   const [project1] = await Project.findOrCreate({
     where: { name: 'AI-Powered Code Review' },
@@ -64,6 +86,7 @@ async function main() {
       projectType: ProjectType.MOONSHOT,
       slackChannel: '#ai-code-review',
       creatorId: alice.id,
+      sprintId: sprint.id,
     },
   })
   console.log('Created/found project:', project1.name)
@@ -76,6 +99,7 @@ async function main() {
       projectType: ProjectType.DELIGHT,
       slackChannel: '#dark-mode',
       creatorId: bob.id,
+      sprintId: sprint.id,
     },
   })
   console.log('Created/found project:', project2.name)
@@ -97,19 +121,6 @@ async function main() {
   })
 
   console.log('Created votes')
-
-  // Create or update app state
-  await AppState.findOrCreate({
-    where: { id: 'singleton' },
-    defaults: {
-      id: 'singleton',
-      stage: AppStage.RECEIVING_SUBMISSIONS,
-      sprintStartDate: new Date('2026-03-02T09:00:00Z'),
-      sprintEndDate: new Date('2026-03-03T18:00:00Z'),
-      testMode: false,
-    },
-  })
-  console.log('Created/found app state')
 
   console.log('Database seeded successfully!')
   process.exit(0)

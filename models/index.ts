@@ -304,6 +304,68 @@ VerificationToken.init({
 })
 
 // ============================================
+// Sprint Model
+// ============================================
+export interface SprintAttributes {
+  id: string
+  name: string
+  stage: AppStage
+  submissionEndDate: Date | null
+  sprintStartDate: Date | null
+  sprintEndDate: Date | null
+  createdAt?: Date
+  updatedAt?: Date
+}
+
+interface SprintCreationAttributes extends Optional<SprintAttributes, 'id' | 'stage' | 'submissionEndDate' | 'sprintStartDate' | 'sprintEndDate' | 'createdAt' | 'updatedAt'> {}
+
+export class Sprint extends Model<SprintAttributes, SprintCreationAttributes> implements SprintAttributes {
+  public id!: string
+  public name!: string
+  public stage!: AppStage
+  public submissionEndDate!: Date | null
+  public sprintStartDate!: Date | null
+  public sprintEndDate!: Date | null
+  public readonly createdAt!: Date
+  public readonly updatedAt!: Date
+
+  public readonly projects?: Project[]
+}
+
+Sprint.init({
+  id: {
+    type: DataTypes.STRING,
+    primaryKey: true,
+    defaultValue: () => generateCuid()
+  },
+  name: {
+    type: DataTypes.STRING,
+    allowNull: false
+  },
+  stage: {
+    type: DataTypes.ENUM(...Object.values(AppStage)),
+    defaultValue: AppStage.RECEIVING_SUBMISSIONS
+  },
+  submissionEndDate: {
+    type: DataTypes.DATE,
+    allowNull: true
+  },
+  sprintStartDate: {
+    type: DataTypes.DATE,
+    allowNull: true
+  },
+  sprintEndDate: {
+    type: DataTypes.DATE,
+    allowNull: true
+  }
+}, {
+  sequelize,
+  tableName: 'Sprint',
+  modelName: 'Sprint',
+  timestamps: true
+})
+
+// ============================================
 // Project Model
 // ============================================
 export interface ProjectAttributes {
@@ -318,11 +380,12 @@ export interface ProjectAttributes {
   visionId: string | null
   department: string | null
   creatorId: string
+  sprintId: string | null
   createdAt?: Date
   updatedAt?: Date
 }
 
-interface ProjectCreationAttributes extends Optional<ProjectAttributes, 'id' | 'pitchVideoUrl' | 'docLink' | 'businessRationale' | 'visionId' | 'department' | 'createdAt' | 'updatedAt'> {}
+interface ProjectCreationAttributes extends Optional<ProjectAttributes, 'id' | 'pitchVideoUrl' | 'docLink' | 'businessRationale' | 'visionId' | 'department' | 'sprintId' | 'createdAt' | 'updatedAt'> {}
 
 export class Project extends Model<ProjectAttributes, ProjectCreationAttributes> implements ProjectAttributes {
   public id!: string
@@ -336,11 +399,13 @@ export class Project extends Model<ProjectAttributes, ProjectCreationAttributes>
   public visionId!: string | null
   public department!: string | null
   public creatorId!: string
+  public sprintId!: string | null
   public readonly createdAt!: Date
   public readonly updatedAt!: Date
 
   public readonly creator?: User
   public readonly vision?: Vision
+  public readonly sprint?: Sprint
   public readonly votes?: Vote[]
   public readonly teams?: Team[]
   public readonly reactions?: Reaction[]
@@ -392,6 +457,10 @@ Project.init({
   creatorId: {
     type: DataTypes.STRING,
     allowNull: false
+  },
+  sprintId: {
+    type: DataTypes.STRING,
+    allowNull: true
   }
 }, {
   sequelize,
@@ -877,26 +946,22 @@ WatchedVideo.init({
 // ============================================
 export interface AppStateAttributes {
   id: string
-  stage: AppStage
-  submissionEndDate: Date | null
-  sprintStartDate: Date | null
-  sprintEndDate: Date | null
+  currentSprintId: string | null
   testMode: boolean
   createdAt?: Date
   updatedAt?: Date
 }
 
-interface AppStateCreationAttributes extends Optional<AppStateAttributes, 'id' | 'stage' | 'submissionEndDate' | 'sprintStartDate' | 'sprintEndDate' | 'testMode' | 'createdAt' | 'updatedAt'> {}
+interface AppStateCreationAttributes extends Optional<AppStateAttributes, 'id' | 'currentSprintId' | 'testMode' | 'createdAt' | 'updatedAt'> {}
 
 export class AppState extends Model<AppStateAttributes, AppStateCreationAttributes> implements AppStateAttributes {
   public id!: string
-  public stage!: AppStage
-  public submissionEndDate!: Date | null
-  public sprintStartDate!: Date | null
-  public sprintEndDate!: Date | null
+  public currentSprintId!: string | null
   public testMode!: boolean
   public readonly createdAt!: Date
   public readonly updatedAt!: Date
+
+  public readonly currentSprint?: Sprint
 }
 
 AppState.init({
@@ -905,20 +970,8 @@ AppState.init({
     primaryKey: true,
     defaultValue: 'singleton'
   },
-  stage: {
-    type: DataTypes.ENUM(...Object.values(AppStage)),
-    defaultValue: AppStage.RECEIVING_SUBMISSIONS
-  },
-  submissionEndDate: {
-    type: DataTypes.DATE,
-    allowNull: true
-  },
-  sprintStartDate: {
-    type: DataTypes.DATE,
-    allowNull: true
-  },
-  sprintEndDate: {
-    type: DataTypes.DATE,
+  currentSprintId: {
+    type: DataTypes.STRING,
     allowNull: true
   },
   testMode: {
@@ -954,9 +1007,14 @@ Account.belongsTo(User, { foreignKey: 'userId', as: 'user', onDelete: 'CASCADE' 
 // Session associations
 Session.belongsTo(User, { foreignKey: 'userId', as: 'user', onDelete: 'CASCADE' })
 
+// Sprint associations
+Sprint.hasMany(Project, { foreignKey: 'sprintId', as: 'projects' })
+AppState.belongsTo(Sprint, { foreignKey: 'currentSprintId', as: 'currentSprint' })
+
 // Project associations
 Project.belongsTo(User, { foreignKey: 'creatorId', as: 'creator', onDelete: 'CASCADE' })
 Project.belongsTo(Vision, { foreignKey: 'visionId', as: 'vision', onDelete: 'SET NULL' })
+Project.belongsTo(Sprint, { foreignKey: 'sprintId', as: 'sprint', onDelete: 'SET NULL' })
 Project.hasMany(Vote, { foreignKey: 'projectId', as: 'votes' })
 Project.hasMany(Team, { foreignKey: 'projectId', as: 'teams' })
 Project.hasMany(Reaction, { foreignKey: 'projectId', as: 'reactions' })

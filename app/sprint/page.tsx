@@ -41,7 +41,7 @@ interface Team {
 export default function SprintPage() {
   const { data: session } = useSession()
   const router = useRouter()
-  const { appState } = useAppState()
+  const { appState, selectedSprintId, activeSprint } = useAppState()
   const [myTeams, setMyTeams] = useState<Team[]>([])
   const [allTeams, setAllTeams] = useState<Team[]>([])
   const [loading, setLoading] = useState(true)
@@ -50,6 +50,7 @@ export default function SprintPage() {
   const [submittingTeamId, setSubmittingTeamId] = useState<string | null>(null)
   const [videoUrl, setVideoUrl] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const [deletingTeamId, setDeletingTeamId] = useState<string | null>(null)
 
   useEffect(() => {
     // Redirect if not in sprint stage
@@ -64,7 +65,8 @@ export default function SprintPage() {
 
   const fetchTeams = async () => {
     try {
-      const res = await fetch('/api/teams')
+      const sprintParam = selectedSprintId ? `?sprintId=${selectedSprintId}` : ''
+      const res = await fetch(`/api/teams${sprintParam}`)
       if (res.ok) {
         const data = await res.json()
         setAllTeams(data)
@@ -104,6 +106,24 @@ export default function SprintPage() {
       console.error('Failed to submit video:', error)
     } finally {
       setSubmitting(false)
+    }
+  }
+
+  const handleDeleteSubmission = async (teamId: string) => {
+    if (!confirm('Are you sure you want to delete this submission?')) return
+
+    setDeletingTeamId(teamId)
+    try {
+      const res = await fetch(`/api/submissions?teamId=${teamId}`, {
+        method: 'DELETE',
+      })
+      if (res.ok) {
+        fetchTeams()
+      }
+    } catch (error) {
+      console.error('Failed to delete submission:', error)
+    } finally {
+      setDeletingTeamId(null)
     }
   }
 
@@ -266,18 +286,30 @@ export default function SprintPage() {
                               </svg>
                               <span className="text-sm">Video submitted!</span>
                             </div>
-                            <button
-                              onClick={() => {
-                                setSubmittingTeamId(team.id)
-                                setVideoUrl(team.submission?.videoUrl || '')
-                              }}
-                              className="flex items-center gap-1 text-sm text-purple-400 hover:text-purple-300"
-                            >
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                              </svg>
-                              Edit
-                            </button>
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={() => {
+                                  setSubmittingTeamId(team.id)
+                                  setVideoUrl(team.submission?.videoUrl || '')
+                                }}
+                                className="flex items-center gap-1 text-sm text-purple-400 hover:text-purple-300"
+                              >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                                </svg>
+                                Edit
+                              </button>
+                              <button
+                                onClick={() => handleDeleteSubmission(team.id)}
+                                disabled={deletingTeamId === team.id}
+                                className="flex items-center gap-1 text-sm text-red-400 hover:text-red-300 disabled:opacity-50"
+                              >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                </svg>
+                                {deletingTeamId === team.id ? 'Deleting...' : 'Delete'}
+                              </button>
+                            </div>
                           </div>
                           <VideoEmbed 
                             url={team.submission.videoUrl} 

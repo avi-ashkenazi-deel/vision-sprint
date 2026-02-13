@@ -41,7 +41,7 @@ interface ProjectReactions {
 export default function ShowcasePage() {
   const { data: session } = useSession()
   const router = useRouter()
-  const { appState } = useAppState()
+  const { appState, selectedSprintId, activeSprint } = useAppState()
   
   const [teams, setTeams] = useState<Team[]>([])
   const [loading, setLoading] = useState(true)
@@ -69,8 +69,9 @@ export default function ShowcasePage() {
 
   const fetchData = async () => {
     try {
+      const sprintParam = selectedSprintId ? `?sprintId=${selectedSprintId}` : ''
       const [teamsRes, watchedRes] = await Promise.all([
-        fetch('/api/teams'),
+        fetch(`/api/teams${sprintParam}`),
         session ? fetch('/api/watched') : Promise.resolve(null),
       ])
 

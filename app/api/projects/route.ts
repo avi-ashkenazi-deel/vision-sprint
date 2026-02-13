@@ -1,15 +1,30 @@
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import { Project, User, Vote, Team, TeamMember, Submission, Vision, ProjectJoin, AppState } from '@/models'
+import { Project, User, Vote, Team, TeamMember, Submission, Vision, ProjectJoin, AppState, Sprint } from '@/models'
 import { validateVideoDuration } from '@/lib/google-drive'
 
 // GET all projects
-export async function GET() {
+export async function GET(request: Request) {
   try {
     const session = await getServerSession(authOptions)
 
+    // Support sprintId query param; default to current sprint
+    const { searchParams } = new URL(request.url)
+    let sprintId = searchParams.get('sprintId')
+
+    if (!sprintId) {
+      const appState = await AppState.findByPk('singleton')
+      sprintId = appState?.currentSprintId || null
+    }
+
+    const whereClause: Record<string, unknown> = {}
+    if (sprintId) {
+      whereClause.sprintId = sprintId
+    }
+
     const projects = await Project.findAll({
+      where: whereClause,
       include: [
         {
           model: User,
@@ -110,10 +125,22 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Check app state (use raw: true to avoid class field shadowing issue)
-    const appState = await AppState.findByPk('singleton', { raw: true }) as { stage: string; testMode: boolean } | null
+    // Check app state — get the current sprint to validate stage
+    let appState: AppState | null
+    let currentSprint: Sprint | null = null
+    try {
+      appState = await AppState.findByPk('singleton', {
+        include: [{ model: Sprint, as: 'currentSprint' }],
+      })
+      currentSprint = appState?.currentSprint ?? null
+    } catch {
+      // Sprint table may not exist yet (pre-migration)
+      appState = await AppState.findByPk('singleton')
+    }
 
-    if (appState && appState.stage !== 'RECEIVING_SUBMISSIONS' && !appState.testMode) {
+    // Check stage from sprint or raw appState (pre-migration fallback)
+    const currentStage = currentSprint?.stage || (appState as any)?.stage
+    if (currentStage && currentStage !== 'RECEIVING_SUBMISSIONS' && !appState?.testMode) {
       return NextResponse.json(
         { error: 'Project submissions are closed' },
         { status: 403 }
@@ -152,6 +179,7 @@ export async function POST(request: Request) {
       visionId: visionId || null,
       department: department || null,
       creatorId: session.user.id,
+      sprintId: currentSprint?.id || appState?.currentSprintId || null,
     })
 
     // Fetch with creator included

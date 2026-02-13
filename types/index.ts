@@ -9,7 +9,8 @@ import type {
   AppStateAttributes, 
   ProjectJoinAttributes, 
   VisionAttributes, 
-  VisionLikeAttributes 
+  VisionLikeAttributes,
+  SprintAttributes
 } from '../models'
 
 // Re-export types for backwards compatibility
@@ -24,6 +25,7 @@ export type AppState = AppStateAttributes
 export type ProjectJoin = ProjectJoinAttributes
 export type Vision = VisionAttributes
 export type VisionLike = VisionLikeAttributes
+export type Sprint = SprintAttributes
 
 export type ProjectType = 'MOONSHOT' | 'SMALL_FEATURE' | 'DELIGHT' | 'EFFICIENCY'
 export type AppStage = 'RECEIVING_SUBMISSIONS' | 'EXECUTING_SPRINT' | 'SPRINT_OVER'
@@ -42,6 +44,16 @@ export const DISCIPLINE_COLORS: Record<Discipline, string> = {
   PRODUCT: 'bg-[var(--badge-purple-bg)] text-[var(--badge-purple-text)]',
   DATA: 'bg-[var(--badge-amber-bg)] text-[var(--badge-amber-text)]',
   DESIGNER: 'bg-[var(--badge-pink-bg)] text-[var(--badge-pink-text)]',
+}
+
+// AppState with the current sprint included
+export interface AppStateWithSprint extends AppState {
+  currentSprint: Sprint | null
+  // Convenience aliases derived from currentSprint for backwards compat
+  stage: AppStage
+  submissionEndDate: string | null
+  sprintStartDate: string | null
+  sprintEndDate: string | null
 }
 
 export interface ProjectWithDetails extends Project {

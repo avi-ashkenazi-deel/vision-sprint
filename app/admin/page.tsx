@@ -40,7 +40,7 @@ const TEAM_SIZE = 3
 export default function AdminPage() {
   const { data: session, status } = useSession()
   const router = useRouter()
-  const { appState, refreshAppState } = useAppState()
+  const { appState, refreshAppState, sprints } = useAppState()
   
   const [stage, setStage] = useState<AppStage>('RECEIVING_SUBMISSIONS')
   const [testMode, setTestMode] = useState(false)
@@ -747,6 +747,207 @@ export default function AdminPage() {
           </div>
         )}
       </div>
+
+      {/* Sprint Management & Backup */}
+      <div className="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-8">
+        {/* Sprint Management */}
+        <div className="glass-card p-6">
+          <h2 className="text-xl font-semibold mb-6">Sprint Management</h2>
+          
+          {/* Current Sprint Info */}
+          {appState?.currentSprint && (
+            <div className="mb-4 p-3 rounded-lg bg-purple-500/10 border border-purple-500/30">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-purple-300 font-medium">Current Sprint</p>
+                  <p className="text-white font-semibold">{(appState as any).currentSprint?.name || 'Unnamed'}</p>
+                </div>
+                <span className="text-xs px-2 py-1 rounded-full bg-emerald-500/20 text-emerald-400">Active</span>
+              </div>
+            </div>
+          )}
+
+          {/* All Sprints List */}
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-300 mb-2">All Sprints</label>
+            {sprints.length === 0 ? (
+              <p className="text-gray-500 text-sm">No sprints found</p>
+            ) : (
+              <div className="space-y-2 max-h-48 overflow-y-auto">
+                {sprints.map((sprint) => {
+                  const isCurrent = sprint.id === appState?.currentSprintId
+                  return (
+                    <div key={sprint.id} className={`flex items-center justify-between p-3 rounded-lg border ${
+                      isCurrent ? 'border-purple-500/30 bg-purple-500/5' : 'border-white/10 bg-white/5'
+                    }`}>
+                      <div>
+                        <p className="text-sm font-medium text-white">{sprint.name}</p>
+                        <p className="text-xs text-gray-400">{sprint.stage?.replace(/_/g, ' ')}</p>
+                      </div>
+                      {isCurrent && (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400">Current</span>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Start New Sprint */}
+          <NewSprintForm onCreated={() => {
+            refreshAppState()
+            fetchData()
+          }} />
+        </div>
+
+        {/* Database Backup */}
+        <div className="glass-card p-6">
+          <h2 className="text-xl font-semibold mb-6">Database Backup</h2>
+          <p className="text-sm text-gray-400 mb-4">
+            Export a full snapshot of all database tables as a JSON file. This includes all sprints, projects, teams, users, votes, reactions, and submissions.
+          </p>
+          
+          <BackupButton />
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// New Sprint Form sub-component
+function NewSprintForm({ onCreated }: { onCreated: () => void }) {
+  const [name, setName] = useState('')
+  const [creating, setCreating] = useState(false)
+  const [showForm, setShowForm] = useState(false)
+
+  const handleCreate = async () => {
+    if (!name.trim()) return
+    setCreating(true)
+    try {
+      const res = await fetch('/api/sprints', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: name.trim(),
+          setAsCurrent: true,
+        }),
+      })
+      if (res.ok) {
+        setName('')
+        setShowForm(false)
+        onCreated()
+      }
+    } catch (error) {
+      console.error('Failed to create sprint:', error)
+    } finally {
+      setCreating(false)
+    }
+  }
+
+  if (!showForm) {
+    return (
+      <button
+        onClick={() => setShowForm(true)}
+        className="btn-primary w-full text-sm"
+      >
+        Start New Sprint
+      </button>
+    )
+  }
+
+  return (
+    <div className="space-y-3 p-3 rounded-lg bg-white/5 border border-white/10">
+      <label className="block text-sm font-medium text-gray-300">Sprint Name</label>
+      <input
+        type="text"
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        placeholder="e.g. March 2026"
+        className="input-field text-sm"
+        autoFocus
+      />
+      <p className="text-xs text-gray-500">
+        This will create a new sprint and set it as the current one. The old sprint will remain accessible in the archive.
+      </p>
+      <div className="flex gap-2">
+        <button
+          onClick={handleCreate}
+          disabled={!name.trim() || creating}
+          className="btn-primary text-sm flex-1"
+        >
+          {creating ? 'Creating...' : 'Create & Set as Current'}
+        </button>
+        <button
+          onClick={() => { setShowForm(false); setName('') }}
+          className="btn-secondary text-sm"
+        >
+          Cancel
+        </button>
+      </div>
+    </div>
+  )
+}
+
+// Backup Button sub-component
+function BackupButton() {
+  const [downloading, setDownloading] = useState(false)
+  const [lastExport, setLastExport] = useState<string | null>(null)
+
+  useEffect(() => {
+    const saved = localStorage.getItem('lastBackupExport')
+    if (saved) setLastExport(saved)
+  }, [])
+
+  const handleDownload = async () => {
+    setDownloading(true)
+    try {
+      const res = await fetch('/api/admin/backup')
+      if (!res.ok) throw new Error('Backup failed')
+      
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      
+      // Extract filename from Content-Disposition header
+      const disposition = res.headers.get('Content-Disposition')
+      const filename = disposition?.match(/filename=(.+)/)?.[1] || 'visionsprint-backup.json'
+      a.download = filename
+      
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+
+      const now = new Date().toISOString()
+      localStorage.setItem('lastBackupExport', now)
+      setLastExport(now)
+    } catch (error) {
+      console.error('Failed to download backup:', error)
+    } finally {
+      setDownloading(false)
+    }
+  }
+
+  return (
+    <div>
+      <button
+        onClick={handleDownload}
+        disabled={downloading}
+        className="btn-primary w-full flex items-center justify-center gap-2"
+      >
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+        </svg>
+        {downloading ? 'Exporting...' : 'Export Backup'}
+      </button>
+      
+      {lastExport && (
+        <p className="text-xs text-gray-500 mt-2 text-center">
+          Last exported: {new Date(lastExport).toLocaleString()}
+        </p>
+      )}
     </div>
   )
 }

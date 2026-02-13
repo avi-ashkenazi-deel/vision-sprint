@@ -1,7 +1,47 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import { Submission, TeamMember, AppState } from '@/models'
+import { Submission, TeamMember, AppState, Sprint } from '@/models'
+
+// DELETE remove a submission
+export async function DELETE(request: NextRequest) {
+  try {
+    const session = await getServerSession(authOptions)
+
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const teamId = request.nextUrl.searchParams.get('teamId')
+    if (!teamId) {
+      return NextResponse.json({ error: 'teamId query param required' }, { status: 400 })
+    }
+
+    // Check if user is a member of this team or admin
+    const teamMember = await TeamMember.findOne({
+      where: { teamId, userId: session.user.id },
+    })
+
+    if (!teamMember && !session.user.isAdmin) {
+      return NextResponse.json(
+        { error: 'You must be a team member or admin to delete a submission' },
+        { status: 403 }
+      )
+    }
+
+    const submission = await Submission.findOne({ where: { teamId } })
+    if (!submission) {
+      return NextResponse.json({ error: 'Submission not found' }, { status: 404 })
+    }
+
+    await submission.destroy()
+
+    return NextResponse.json({ success: true })
+  } catch (error) {
+    console.error('Error deleting submission:', error)
+    return NextResponse.json({ error: 'Failed to delete submission' }, { status: 500 })
+  }
+}
 
 // POST create/update submission
 export async function POST(request: Request) {
@@ -12,10 +52,18 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Check app state
-    const appState = await AppState.findByPk('singleton')
+    // Check app state via current sprint (with pre-migration fallback)
+    let appState: any
+    try {
+      appState = await AppState.findByPk('singleton', {
+        include: [{ model: Sprint, as: 'currentSprint' }],
+      })
+    } catch {
+      appState = await AppState.findByPk('singleton')
+    }
+    const currentStage = appState?.currentSprint?.stage || appState?.stage
 
-    if (appState && appState.stage !== 'EXECUTING_SPRINT' && !appState.testMode) {
+    if (appState && currentStage !== 'EXECUTING_SPRINT' && !appState.testMode) {
       return NextResponse.json(
         { error: 'Submissions are only allowed during the sprint' },
         { status: 403 }

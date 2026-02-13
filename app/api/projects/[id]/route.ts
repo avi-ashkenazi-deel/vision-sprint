@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import { Project, User, Vote, Team, TeamMember, Submission, Vision, ProjectJoin, Reaction, AppState } from '@/models'
+import { Project, User, Vote, Team, TeamMember, Submission, Vision, ProjectJoin, Reaction, AppState, Sprint } from '@/models'
 import { validateVideoDuration } from '@/lib/google-drive'
 
 // GET single project
@@ -129,13 +129,21 @@ export async function PUT(
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
-    // Check app state for what can be edited (raw: true to avoid class field shadowing)
-    const appState = await AppState.findByPk('singleton', { raw: true }) as { stage: string; testMode: boolean } | null
+    // Check app state for what can be edited via current sprint (with pre-migration fallback)
+    let appState: any
+    try {
+      appState = await AppState.findByPk('singleton', {
+        include: [{ model: Sprint, as: 'currentSprint' }],
+      })
+    } catch {
+      appState = await AppState.findByPk('singleton')
+    }
+    const currentStage = appState?.currentSprint?.stage || appState?.stage
 
     const body = await request.json()
 
     // During sprint, only allow editing slack channel and doc link
-    if (appState?.stage === 'EXECUTING_SPRINT' && !appState.testMode) {
+    if (currentStage === 'EXECUTING_SPRINT' && !appState?.testMode) {
       const { slackChannel, docLink } = body
       await project.update({
         ...(slackChannel && { slackChannel }),
@@ -155,7 +163,7 @@ export async function PUT(
     }
 
     // During sprint over, nothing is editable
-    if (appState?.stage === 'SPRINT_OVER' && !appState.testMode) {
+    if (currentStage === 'SPRINT_OVER' && !appState?.testMode) {
       return NextResponse.json(
         { error: 'Editing is disabled after sprint ends' },
         { status: 403 }
@@ -240,10 +248,18 @@ export async function DELETE(
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
-    // Check app state (raw: true to avoid class field shadowing)
-    const appState = await AppState.findByPk('singleton', { raw: true }) as { stage: string; testMode: boolean } | null
+    // Check app state via current sprint (with pre-migration fallback)
+    let appState: any
+    try {
+      appState = await AppState.findByPk('singleton', {
+        include: [{ model: Sprint, as: 'currentSprint' }],
+      })
+    } catch {
+      appState = await AppState.findByPk('singleton')
+    }
+    const currentStage = appState?.currentSprint?.stage || appState?.stage
 
-    if (appState && appState.stage !== 'RECEIVING_SUBMISSIONS' && !appState.testMode) {
+    if (appState && currentStage !== 'RECEIVING_SUBMISSIONS' && !appState?.testMode) {
       return NextResponse.json(
         { error: 'Deleting projects is disabled during sprint' },
         { status: 403 }

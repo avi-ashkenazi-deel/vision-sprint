@@ -9,12 +9,14 @@ import Image from 'next/image'
 
 export function Navigation() {
   const { data: session, status } = useSession()
-  const { appState } = useAppState()
+  const { appState, sprints, selectedSprintId, setSelectedSprintId, activeSprint, isViewingPastSprint } = useAppState()
   const pathname = usePathname()
   const [showUserMenu, setShowUserMenu] = useState(false)
+  const [showSprintDropdown, setShowSprintDropdown] = useState(false)
 
   const getStageLabel = () => {
-    switch (appState?.stage) {
+    const stage = activeSprint?.stage || appState?.stage
+    switch (stage) {
       case 'RECEIVING_SUBMISSIONS':
         return 'Submissions Open'
       case 'EXECUTING_SPRINT':
@@ -27,7 +29,8 @@ export function Navigation() {
   }
 
   const getStageColor = () => {
-    switch (appState?.stage) {
+    const stage = activeSprint?.stage || appState?.stage
+    switch (stage) {
       case 'RECEIVING_SUBMISSIONS':
         return 'bg-[var(--badge-emerald-bg)] text-[var(--badge-emerald-text)]'
       case 'EXECUTING_SPRINT':
@@ -89,7 +92,63 @@ export function Navigation() {
           </div>}
 
           {/* Right side */}
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
+            {/* Sprint selector dropdown */}
+            {session && sprints.length > 1 && (
+              <div className="relative">
+                <button
+                  onClick={() => setShowSprintDropdown(!showSprintDropdown)}
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-lg border border-[var(--card-border)] bg-[var(--card-bg)] text-[var(--foreground-secondary)] hover:text-[var(--foreground)] hover:border-[var(--accent-purple)] transition-colors"
+                >
+                  <svg className="w-3.5 h-3.5 opacity-60" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                  <span className="max-w-[120px] truncate">
+                    {activeSprint?.name || 'Select Sprint'}
+                  </span>
+                  {isViewingPastSprint && (
+                    <span className="text-[10px] px-1 py-0.5 rounded bg-amber-500/20 text-amber-400">Archive</span>
+                  )}
+                  <svg className="w-3 h-3 opacity-40" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+
+                {showSprintDropdown && (
+                  <>
+                    <div className="fixed inset-0 z-10" onClick={() => setShowSprintDropdown(false)} />
+                    <div className="absolute right-0 mt-1 w-56 bg-[var(--card-bg)] border border-[var(--card-border)] rounded-lg shadow-lg p-1 z-20 max-h-64 overflow-y-auto">
+                      {sprints.map((sprint) => {
+                        const isCurrent = sprint.id === appState?.currentSprintId
+                        const isSelected = sprint.id === selectedSprintId
+                        return (
+                          <button
+                            key={sprint.id}
+                            onClick={() => {
+                              setSelectedSprintId(sprint.id)
+                              setShowSprintDropdown(false)
+                            }}
+                            className={`w-full text-left px-3 py-2 text-sm rounded-md transition-colors flex items-center justify-between ${
+                              isSelected
+                                ? 'bg-[var(--accent-purple)]/20 text-white'
+                                : 'text-[var(--foreground-secondary)] hover:text-[var(--foreground)] hover:bg-white/5'
+                            }`}
+                          >
+                            <span className="truncate">{sprint.name}</span>
+                            {isCurrent && (
+                              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 ml-2 shrink-0">
+                                Current
+                              </span>
+                            )}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+
             {/* Stage badge */}
             <div className={`badge ${getStageColor()}`}>
               <span className="w-1.5 h-1.5 rounded-full bg-current mr-2"></span>
@@ -153,6 +212,21 @@ export function Navigation() {
           </div>
         </div>
       </div>
+
+      {/* Archive banner when viewing a past sprint */}
+      {isViewingPastSprint && activeSprint && (
+        <div className="bg-amber-500/10 border-b border-amber-500/20 px-4 py-2 text-center">
+          <span className="text-sm text-amber-400">
+            Viewing <strong>{activeSprint.name}</strong> archive (read-only)
+          </span>
+          <button
+            onClick={() => setSelectedSprintId(appState?.currentSprintId || null)}
+            className="ml-3 text-xs text-amber-300 underline hover:text-amber-200 transition-colors"
+          >
+            Back to current sprint
+          </button>
+        </div>
+      )}
     </nav>
   )
 }

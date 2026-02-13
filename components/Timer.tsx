@@ -41,16 +41,9 @@ export function Timer({ endDate, label = 'Time Remaining' }: TimerProps) {
     { value: timeLeft.seconds, label: 'Seconds' },
   ]
 
+  // When time is up, hide the timer entirely instead of showing an alarm
   if (timeLeft.isOver) {
-    return (
-      <div className="text-center">
-        <p className="text-gray-400 mb-2">{label}</p>
-        <div className="glass-card p-6 animate-pulse-glow">
-          <p className="text-2xl font-bold text-purple-400">Time&apos;s Up!</p>
-          <p className="text-gray-400 mt-2">Sprint has ended</p>
-        </div>
-      </div>
-    )
+    return null
   }
 
   return (

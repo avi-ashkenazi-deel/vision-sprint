@@ -42,16 +42,7 @@ function SignInContent() {
         <KineticText />
       </div>
 
-      <div className="p-8 w-full max-w-md text-center relative z-10 rounded-2xl bg-black/30 backdrop-blur-sm border border-white/[0.12] shadow-[0_0_30px_rgba(255,255,255,0.03)]">
-        {/* Logo */}
-        <div className="mx-auto mb-6">
-          <img
-            src="/logo-square.svg"
-            alt="VisionSprint"
-            className="mx-auto w-20 h-20"
-          />
-        </div>
-
+      <div className="w-full max-w-md text-center relative z-10">
         {error && (
           <div className="mb-6 p-4 rounded-lg bg-[var(--badge-red-bg)] border border-[var(--accent-red)] text-[var(--badge-red-text)] text-sm">
             {error === 'OAuthSignin' && 'Error starting sign in process. Google OAuth may not be configured.'}

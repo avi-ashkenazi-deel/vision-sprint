@@ -76,7 +76,7 @@ interface Team {
 export default function HomePage() {
   const { data: session, status } = useSession()
   const router = useRouter()
-  const { appState, loading: appStateLoading } = useAppState()
+  const { appState, loading: appStateLoading, selectedSprintId, isViewingPastSprint, activeSprint } = useAppState()
   const [projects, setProjects] = useState<Project[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -102,20 +102,128 @@ export default function HomePage() {
   const [submittingTeamId, setSubmittingTeamId] = useState<string | null>(null)
   const [videoUrl, setVideoUrl] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const [deletingTeamId, setDeletingTeamId] = useState<string | null>(null)
 
   useEffect(() => {
-    fetchProjects()
-  }, [])
+    if (selectedSprintId) {
+      fetchProjects()
+    }
+  }, [selectedSprintId])
 
   useEffect(() => {
-    if (appState?.stage === 'EXECUTING_SPRINT' || appState?.testMode) {
+    const stage = activeSprint?.stage || appState?.stage
+    if (stage === 'EXECUTING_SPRINT' || appState?.testMode) {
       fetchTeams()
     }
-  }, [appState, session])
+  }, [appState, session, selectedSprintId, activeSprint])
+
+  // Showcase state for SPRINT_OVER (hooks must be before early returns)
+  const [showcaseTeams, setShowcaseTeams] = useState<Team[]>([])
+  const [showcaseReactions, setShowcaseReactions] = useState<Record<string, { counts: Record<string, number>, userReactions: ReactionType[] }>>({})
+  const [selectedShowcaseIndex, setSelectedShowcaseIndex] = useState<number | null>(null)
+  const [watchedVideos, setWatchedVideos] = useState<Set<string>>(new Set())
+  const [showConfetti, setShowConfetti] = useState(false)
+
+  const fetchShowcaseData = async () => {
+    try {
+      const sprintParam = selectedSprintId ? `?sprintId=${selectedSprintId}` : ''
+      const teamsRes = await fetch(`/api/teams${sprintParam}`)
+      if (teamsRes.ok) {
+        const teamsData = await teamsRes.json()
+        const teamsWithSubmissions = teamsData.filter((t: Team) => t.submission)
+        setShowcaseTeams(teamsWithSubmissions)
+
+        // Fetch reactions
+        const projectIds = [...new Set(teamsWithSubmissions.map((t: Team) => t.project.id))]
+        const reactionsData: Record<string, { counts: Record<string, number>, userReactions: ReactionType[] }> = {}
+        
+        await Promise.all(
+          projectIds.map(async (projectId) => {
+            const res = await fetch(`/api/reactions?projectId=${projectId}`)
+            if (res.ok) {
+              const data = await res.json()
+              reactionsData[projectId as string] = { 
+                counts: data.counts,
+                userReactions: session?.user?.id
+                  ? data.reactions
+                      ?.filter((r: { userId: string }) => r.userId === session.user.id)
+                      .map((r: { reactionType: ReactionType }) => r.reactionType) || []
+                  : []
+              }
+            }
+          })
+        )
+        setShowcaseReactions(reactionsData)
+      }
+    } catch (error) {
+      console.error('Failed to fetch showcase data:', error)
+    }
+  }
+
+  const handleReact = async (projectId: string, type: ReactionType) => {
+    if (!session) return
+
+    try {
+      const res = await fetch('/api/reactions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ projectId, reactionType: type }),
+      })
+
+      if (res.ok) {
+        setShowcaseReactions((prev) => {
+          const current = prev[projectId] || { counts: {}, userReactions: [] }
+          const hasReaction = current.userReactions.includes(type)
+          
+          return {
+            ...prev,
+            [projectId]: {
+              counts: {
+                ...current.counts,
+                [type]: (current.counts[type] || 0) + (hasReaction ? -1 : 1),
+              },
+              userReactions: hasReaction
+                ? current.userReactions.filter((r) => r !== type)
+                : [...current.userReactions, type],
+            },
+          }
+        })
+      }
+    } catch (error) {
+      console.error('Failed to react:', error)
+    }
+  }
+
+  const markVideoWatched = (teamId: string) => {
+    setWatchedVideos(prev => {
+      const newSet = new Set(prev)
+      newSet.add(teamId)
+      
+      // Check if all videos watched - trigger confetti!
+      if (newSet.size === showcaseTeams.length && showcaseTeams.length > 0 && !showConfetti) {
+        setShowConfetti(true)
+      }
+      
+      return newSet
+    })
+  }
+
+  const getTotalReactions = (projectId: string) => {
+    const counts = showcaseReactions[projectId]?.counts || {}
+    return Object.values(counts).reduce((sum: number, count) => sum + (count as number), 0)
+  }
+
+  useEffect(() => {
+    const stage = activeSprint?.stage || appState?.stage
+    if (stage === 'SPRINT_OVER' || appState?.testMode) {
+      fetchShowcaseData()
+    }
+  }, [appState, selectedSprintId, activeSprint])
 
   const fetchProjects = async () => {
     try {
-      const res = await fetch('/api/projects')
+      const sprintParam = selectedSprintId ? `?sprintId=${selectedSprintId}` : ''
+      const res = await fetch(`/api/projects${sprintParam}`)
       if (res.ok) {
         const data = await res.json()
         setProjects(data)
@@ -129,7 +237,8 @@ export default function HomePage() {
 
   const fetchTeams = async () => {
     try {
-      const res = await fetch('/api/teams')
+      const sprintParam = selectedSprintId ? `?sprintId=${selectedSprintId}` : ''
+      const res = await fetch(`/api/teams${sprintParam}`)
       if (res.ok) {
         const data = await res.json()
         setAllTeams(data)
@@ -166,6 +275,24 @@ export default function HomePage() {
       console.error('Failed to submit video:', error)
     } finally {
       setSubmitting(false)
+    }
+  }
+
+  const handleDeleteSubmission = async (teamId: string) => {
+    if (!confirm('Are you sure you want to delete this submission?')) return
+
+    setDeletingTeamId(teamId)
+    try {
+      const res = await fetch(`/api/submissions?teamId=${teamId}`, {
+        method: 'DELETE',
+      })
+      if (res.ok) {
+        fetchTeams()
+      }
+    } catch (error) {
+      console.error('Failed to delete submission:', error)
+    } finally {
+      setDeletingTeamId(null)
     }
   }
 
@@ -284,7 +411,8 @@ export default function HomePage() {
     'EFFICIENCY',
   ]
 
-  const isSubmissionsOpen = appState?.stage === 'RECEIVING_SUBMISSIONS' || appState?.testMode
+  const currentStage = activeSprint?.stage || appState?.stage
+  const isSubmissionsOpen = (currentStage === 'RECEIVING_SUBMISSIONS' || appState?.testMode) && !isViewingPastSprint
 
   // Show nothing while checking auth (prevents flash of content)
   if (status === 'loading' || status === 'unauthenticated') {
@@ -296,7 +424,7 @@ export default function HomePage() {
   }
 
   // Sprint dashboard during EXECUTING_SPRINT stage
-  if (appState?.stage === 'EXECUTING_SPRINT') {
+  if (currentStage === 'EXECUTING_SPRINT' && !isViewingPastSprint) {
     return (
       <div className="max-w-6xl mx-auto px-4 py-8">
         <h1 className="text-3xl font-bold text-white mb-2">Sprint Dashboard</h1>
@@ -441,18 +569,30 @@ export default function HomePage() {
                                 </svg>
                                 <span className="text-sm">Video submitted!</span>
                               </div>
-                              <button
-                                onClick={() => {
-                                  setSubmittingTeamId(team.id)
-                                  setVideoUrl(team.submission?.videoUrl || '')
-                                }}
-                                className="flex items-center gap-1 text-sm text-purple-400 hover:text-purple-300"
-                              >
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                                </svg>
-                                Edit
-                              </button>
+                              <div className="flex items-center gap-2">
+                                <button
+                                  onClick={() => {
+                                    setSubmittingTeamId(team.id)
+                                    setVideoUrl(team.submission?.videoUrl || '')
+                                  }}
+                                  className="flex items-center gap-1 text-sm text-purple-400 hover:text-purple-300"
+                                >
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                                  </svg>
+                                  Edit
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteSubmission(team.id)}
+                                  disabled={deletingTeamId === team.id}
+                                  className="flex items-center gap-1 text-sm text-red-400 hover:text-red-300 disabled:opacity-50"
+                                >
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                  </svg>
+                                  {deletingTeamId === team.id ? 'Deleting...' : 'Delete'}
+                                </button>
+                              </div>
                             </div>
                             <VideoEmbed 
                               url={team.submission.videoUrl} 
@@ -538,108 +678,7 @@ export default function HomePage() {
     )
   }
 
-  // Showcase state for SPRINT_OVER
-  const [showcaseTeams, setShowcaseTeams] = useState<Team[]>([])
-  const [showcaseReactions, setShowcaseReactions] = useState<Record<string, { counts: Record<string, number>, userReactions: ReactionType[] }>>({})
-  const [selectedShowcaseIndex, setSelectedShowcaseIndex] = useState<number | null>(null)
-  const [watchedVideos, setWatchedVideos] = useState<Set<string>>(new Set())
-  const [showConfetti, setShowConfetti] = useState(false)
-
-  useEffect(() => {
-    if (appState?.stage === 'SPRINT_OVER' || appState?.testMode) {
-      fetchShowcaseData()
-    }
-  }, [appState])
-
-  const fetchShowcaseData = async () => {
-    try {
-      const teamsRes = await fetch('/api/teams')
-      if (teamsRes.ok) {
-        const teamsData = await teamsRes.json()
-        const teamsWithSubmissions = teamsData.filter((t: Team) => t.submission)
-        setShowcaseTeams(teamsWithSubmissions)
-
-        // Fetch reactions
-        const projectIds = [...new Set(teamsWithSubmissions.map((t: Team) => t.project.id))]
-        const reactionsData: Record<string, { counts: Record<string, number>, userReactions: ReactionType[] }> = {}
-        
-        await Promise.all(
-          projectIds.map(async (projectId) => {
-            const res = await fetch(`/api/reactions?projectId=${projectId}`)
-            if (res.ok) {
-              const data = await res.json()
-              reactionsData[projectId as string] = { 
-                counts: data.counts,
-                userReactions: session?.user?.id
-                  ? data.reactions
-                      ?.filter((r: { userId: string }) => r.userId === session.user.id)
-                      .map((r: { reactionType: ReactionType }) => r.reactionType) || []
-                  : []
-              }
-            }
-          })
-        )
-        setShowcaseReactions(reactionsData)
-      }
-    } catch (error) {
-      console.error('Failed to fetch showcase data:', error)
-    }
-  }
-
-  const handleReact = async (projectId: string, type: ReactionType) => {
-    if (!session) return
-
-    try {
-      const res = await fetch('/api/reactions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ projectId, reactionType: type }),
-      })
-
-      if (res.ok) {
-        setShowcaseReactions((prev) => {
-          const current = prev[projectId] || { counts: {}, userReactions: [] }
-          const hasReaction = current.userReactions.includes(type)
-          
-          return {
-            ...prev,
-            [projectId]: {
-              counts: {
-                ...current.counts,
-                [type]: (current.counts[type] || 0) + (hasReaction ? -1 : 1),
-              },
-              userReactions: hasReaction
-                ? current.userReactions.filter((r) => r !== type)
-                : [...current.userReactions, type],
-            },
-          }
-        })
-      }
-    } catch (error) {
-      console.error('Failed to react:', error)
-    }
-  }
-
-  const markVideoWatched = (teamId: string) => {
-    setWatchedVideos(prev => {
-      const newSet = new Set(prev)
-      newSet.add(teamId)
-      
-      // Check if all videos watched - trigger confetti!
-      if (newSet.size === showcaseTeams.length && showcaseTeams.length > 0 && !showConfetti) {
-        setShowConfetti(true)
-      }
-      
-      return newSet
-    })
-  }
-
-  const getTotalReactions = (projectId: string) => {
-    const counts = showcaseReactions[projectId]?.counts || {}
-    return Object.values(counts).reduce((sum: number, count) => sum + (count as number), 0)
-  }
-
-  if (appState?.stage === 'SPRINT_OVER') {
+  if (currentStage === 'SPRINT_OVER' || (isViewingPastSprint && activeSprint?.stage === 'SPRINT_OVER')) {
     const sortedTeams = [...showcaseTeams].sort((a, b) => 
       getTotalReactions(b.project.id) - getTotalReactions(a.project.id)
     )
@@ -899,17 +938,21 @@ export default function HomePage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
         <div>
-          <h1 className="text-3xl font-bold text-white">Project Ideas</h1>
+          <h1 className="text-3xl font-bold text-white">
+            {isViewingPastSprint && activeSprint ? `${activeSprint.name} - Projects` : 'Project Ideas'}
+          </h1>
           <p className="text-gray-400 mt-1">
-            {appStateLoading
-              ? 'Loading...'
-              : isSubmissionsOpen
-                ? 'Vote for your favorite ideas or submit your own'
-                : 'Submissions are currently closed'}
+            {isViewingPastSprint
+              ? 'Viewing archived sprint projects (read-only)'
+              : appStateLoading
+                ? 'Loading...'
+                : isSubmissionsOpen
+                  ? 'Vote for your favorite ideas or submit your own'
+                  : 'Submissions are currently closed'}
           </p>
         </div>
 
-        {(isSubmissionsOpen || appStateLoading) && session && (
+        {!isViewingPastSprint && (isSubmissionsOpen || appStateLoading) && session && (
           <Link href="/projects/new" className="btn-primary whitespace-nowrap">
             New submission
           </Link>
@@ -1020,7 +1063,7 @@ export default function HomePage() {
                     </span>
                   </th>
                 )}
-                {session && (
+                {session && !isViewingPastSprint && (
                   <th className="text-right px-6 py-4 text-sm font-medium text-gray-400">
                     Actions
                   </th>
@@ -1097,7 +1140,7 @@ export default function HomePage() {
                       </span>
                     </td>
                   )}
-                  {session && (
+                  {session && !isViewingPastSprint && (
                     <td className="px-6 py-4 text-right" onClick={(e) => e.stopPropagation()}>
                       <div className="flex items-center justify-end gap-2">
                         {/* Like button */}
@@ -1202,7 +1245,7 @@ export default function HomePage() {
       )}
 
       {/* Submission Countdown Timer - bottom left */}
-      {isSubmissionsOpen && appState?.submissionEndDate && (
+      {!isViewingPastSprint && isSubmissionsOpen && appState?.submissionEndDate && (
         <SubmissionCountdown endDate={new Date(appState.submissionEndDate)} />
       )}
     </div>

@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import { Project, Team, TeamMember, User, Submission } from '@/models'
+import { Project, Team, TeamMember, User, Submission, AppState } from '@/models'
 
 // POST create team (admin only)
 export async function POST(request: Request) {
@@ -75,14 +75,29 @@ export async function POST(request: Request) {
 }
 
 // GET all teams
-export async function GET() {
+export async function GET(request: Request) {
   try {
+    // Support sprintId query param; default to current sprint
+    const { searchParams } = new URL(request.url)
+    let sprintId = searchParams.get('sprintId')
+
+    if (!sprintId) {
+      const appState = await AppState.findByPk('singleton')
+      sprintId = appState?.currentSprintId || null
+    }
+
+    const projectWhere: Record<string, unknown> = {}
+    if (sprintId) {
+      projectWhere.sprintId = sprintId
+    }
+
     const teams = await Team.findAll({
       include: [
         {
           model: Project,
           as: 'project',
-          attributes: ['id', 'name', 'projectType'],
+          attributes: ['id', 'name', 'projectType', 'sprintId'],
+          where: Object.keys(projectWhere).length > 0 ? projectWhere : undefined,
         },
         {
           model: TeamMember,
