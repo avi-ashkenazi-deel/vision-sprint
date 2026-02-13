@@ -42,7 +42,7 @@ export function Navigation() {
   return (
     <nav className={`fixed top-0 left-0 right-0 z-50 ${pathname === '/auth/signin' ? 'bg-black/80 backdrop-blur-sm border-b border-white/[0.06]' : 'bg-[var(--nav-bg)] border-b border-[var(--card-border)]'}`}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-14">
+        <div className="flex items-center justify-between h-14 relative">
           {/* Logo */}
           <Link href="/" className="flex items-center">
             <img
@@ -53,7 +53,7 @@ export function Navigation() {
           </Link>
 
           {/* Center nav items - only show when logged in */}
-          {session && <div className="hidden md:flex items-center gap-1">
+          {session && <div className="hidden md:flex items-center gap-1 absolute left-1/2 -translate-x-1/2">
             <Link
               href="/"
               className={`px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
