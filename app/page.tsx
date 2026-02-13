@@ -1181,8 +1181,8 @@ export default function HomePage() {
                   className="w-full text-left p-3 rounded-lg border border-white/10 bg-white/5 hover:bg-red-500/10 hover:border-red-500/30 transition-all flex items-center justify-between group disabled:opacity-50"
                 >
                   <span className="text-white font-medium truncate">{join.projectName}</span>
-                  <span className="text-xs text-gray-500 group-hover:text-red-400 transition-colors flex-shrink-0 ml-2">
-                    {swapping ? 'Swapping...' : 'Leave & swap'}
+                  <span className="text-xs px-3 py-1 rounded-lg bg-red-500/10 text-red-400 border border-red-500/30 group-hover:bg-red-500/20 transition-all flex-shrink-0 ml-2">
+                    {swapping ? 'Swapping...' : 'Swap'}
                   </span>
                 </button>
               ))}

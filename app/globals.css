@@ -427,6 +427,149 @@ select.input-field option {
   animation: fadeIn 0.3s ease forwards;
 }
 
+/* Chevron wipe transition — sweeps from bottom to top with a chevron leading edge */
+@keyframes chevronWipeIn {
+  0% {
+    clip-path: polygon(0% 120%, 50% 115%, 100% 120%, 100% 120%, 0% 120%);
+  }
+  100% {
+    clip-path: polygon(0% -5%, 50% -12%, 100% -5%, 100% 120%, 0% 120%);
+  }
+}
+
+@keyframes chevronWipeOut {
+  0% {
+    clip-path: polygon(0% -5%, 50% -12%, 100% -5%, 100% 120%, 0% 120%);
+  }
+  100% {
+    clip-path: polygon(0% -120%, 50% -130%, 100% -120%, 100% -110%, 0% -110%);
+  }
+}
+
+.chevron-wipe-in {
+  animation: chevronWipeIn 0.7s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+.chevron-wipe-out {
+  animation: chevronWipeOut 0.7s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+/* Logo slide-up from bottom during wipe */
+@keyframes logoSlideUp {
+  0% {
+    opacity: 0;
+    transform: translateY(60px) scale(0.9);
+  }
+  40% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.animate-logoSlideUp {
+  animation: logoSlideUp 0.6s 0.15s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Success content fade-in after wipe */
+@keyframes successSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.animate-successSlideUp {
+  animation: successSlideUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Check circle draw-in */
+@keyframes checkDraw {
+  0% {
+    stroke-dashoffset: 100;
+    opacity: 0;
+  }
+  30% {
+    opacity: 1;
+  }
+  100% {
+    stroke-dashoffset: 0;
+    opacity: 1;
+  }
+}
+
+@keyframes circleDraw {
+  0% {
+    stroke-dashoffset: 283;
+    opacity: 0;
+  }
+  20% {
+    opacity: 1;
+  }
+  100% {
+    stroke-dashoffset: 0;
+    opacity: 1;
+  }
+}
+
+.animate-checkDraw {
+  stroke-dasharray: 100;
+  stroke-dashoffset: 100;
+  animation: checkDraw 0.6s 0.3s cubic-bezier(0.65, 0, 0.35, 1) forwards;
+}
+
+.animate-circleDraw {
+  stroke-dasharray: 283;
+  stroke-dashoffset: 283;
+  animation: circleDraw 0.8s cubic-bezier(0.65, 0, 0.35, 1) forwards;
+}
+
+/* Pulse glow for success state */
+@keyframes pulseGlow {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(253, 205, 42, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 40px 10px rgba(253, 205, 42, 0.15);
+  }
+}
+
+.animate-pulseGlow {
+  animation: pulseGlow 2s ease-in-out infinite;
+}
+
+/* Countdown ring depletion */
+@keyframes countdownRing {
+  from {
+    stroke-dashoffset: 0;
+  }
+  to {
+    stroke-dashoffset: 226;
+  }
+}
+
+/* Fade out the whole success screen before navigating */
+@keyframes fadeOutDown {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+}
+
+.animate-fadeOutDown {
+  animation: fadeOutDown 0.5s cubic-bezier(0.4, 0, 1, 1) forwards;
+}
+
 /* Text colors for light theme */
 .text-white {
   color: var(--foreground) !important;

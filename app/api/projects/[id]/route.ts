@@ -129,8 +129,8 @@ export async function PUT(
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
-    // Check app state for what can be edited
-    const appState = await AppState.findByPk('singleton')
+    // Check app state for what can be edited (raw: true to avoid class field shadowing)
+    const appState = await AppState.findByPk('singleton', { raw: true }) as { stage: string; testMode: boolean } | null
 
     const body = await request.json()
 
@@ -240,8 +240,8 @@ export async function DELETE(
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
-    // Check app state
-    const appState = await AppState.findByPk('singleton')
+    // Check app state (raw: true to avoid class field shadowing)
+    const appState = await AppState.findByPk('singleton', { raw: true }) as { stage: string; testMode: boolean } | null
 
     if (appState && appState.stage !== 'RECEIVING_SUBMISSIONS' && !appState.testMode) {
       return NextResponse.json(

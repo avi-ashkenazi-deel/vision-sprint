@@ -5,7 +5,8 @@ import { validateVideoDuration, extractDriveFileId } from '@/lib/google-drive'
 
 /**
  * POST /api/projects/check-video
- * Check the duration of a Google Drive video before project submission.
+ * Check the duration of a Google Drive video.
+ * Uses OAuth token if available, falls back to API key for public files.
  */
 export async function POST(request: Request) {
   try {
@@ -26,15 +27,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Could not extract file ID from URL' }, { status: 400 })
     }
 
-    if (!session.accessToken) {
-      // No access token — can't check duration (dev login, expired token, etc.)
-      return NextResponse.json({
-        valid: true,
-        warning: 'Could not verify video duration (no Google access token). Duration will be checked on submission.',
-      })
-    }
-
-    const result = await validateVideoDuration(videoUrl, session.accessToken)
+    // Pass access token if available (Google OAuth), otherwise null (will use API key)
+    const result = await validateVideoDuration(videoUrl, session.accessToken || null)
     return NextResponse.json(result)
   } catch (error) {
     console.error('Error checking video:', error)

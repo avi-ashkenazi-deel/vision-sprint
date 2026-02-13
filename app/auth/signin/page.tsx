@@ -42,7 +42,7 @@ function SignInContent() {
         <KineticText />
       </div>
 
-      <div className="p-8 w-full max-w-md text-center relative z-10 rounded-2xl bg-black/90 backdrop-blur-sm border border-white/[0.12] shadow-[0_0_30px_rgba(255,255,255,0.03)]">
+      <div className="p-8 w-full max-w-md text-center relative z-10 rounded-2xl bg-black/30 backdrop-blur-sm border border-white/[0.12] shadow-[0_0_30px_rgba(255,255,255,0.03)]">
         {/* Logo */}
         <div className="mx-auto mb-6">
           <img

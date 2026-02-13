@@ -110,8 +110,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Check app state
-    const appState = await AppState.findByPk('singleton')
+    // Check app state (use raw: true to avoid class field shadowing issue)
+    const appState = await AppState.findByPk('singleton', { raw: true }) as { stage: string; testMode: boolean } | null
 
     if (appState && appState.stage !== 'RECEIVING_SUBMISSIONS' && !appState.testMode) {
       return NextResponse.json(

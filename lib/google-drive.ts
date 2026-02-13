@@ -1,5 +1,8 @@
 /**
  * Google Drive API utility for checking video metadata (duration, etc.)
+ * Supports two auth modes:
+ *  1. OAuth access token (from user's Google sign-in)
+ *  2. API key fallback (for public "anyone with the link" files)
  */
 
 const MAX_VIDEO_DURATION_MS = 4 * 60 * 1000 // 4 minutes in milliseconds
@@ -34,22 +37,47 @@ interface DriveVideoMetadata {
 }
 
 /**
- * Fetch video metadata from Google Drive API using the user's access token.
- * Returns duration info or null if the file isn't a video or can't be accessed.
+ * Fetch video metadata from Google Drive API.
+ * Tries OAuth token first, then falls back to API key for public files.
  */
 export async function getVideoDuration(
   fileId: string,
-  accessToken: string
+  accessToken?: string | null
+): Promise<DriveVideoMetadata | null> {
+  const fields = 'name,mimeType,videoMediaMetadata'
+
+  // Try OAuth token first
+  if (accessToken) {
+    const result = await fetchDriveFile(
+      `https://www.googleapis.com/drive/v3/files/${fileId}?fields=${fields}`,
+      { Authorization: `Bearer ${accessToken}` }
+    )
+    if (result) return result
+    console.log('[Drive API] OAuth token failed or no video metadata, trying API key...')
+  }
+
+  // Fallback to API key (works for public files)
+  const apiKey = process.env.GOOGLE_API_KEY
+  if (apiKey) {
+    const result = await fetchDriveFile(
+      `https://www.googleapis.com/drive/v3/files/${fileId}?fields=${fields}&key=${apiKey}`,
+      {}
+    )
+    if (result) return result
+    console.log('[Drive API] API key approach also returned no video metadata')
+  } else {
+    console.log('[Drive API] No GOOGLE_API_KEY configured — cannot check video duration without OAuth token')
+  }
+
+  return null
+}
+
+async function fetchDriveFile(
+  url: string,
+  headers: Record<string, string>
 ): Promise<DriveVideoMetadata | null> {
   try {
-    const res = await fetch(
-      `https://www.googleapis.com/drive/v3/files/${fileId}?fields=name,mimeType,videoMediaMetadata`,
-      {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
-      }
-    )
+    const res = await fetch(url, { headers })
 
     if (!res.ok) {
       const errorText = await res.text()
@@ -60,7 +88,7 @@ export async function getVideoDuration(
     const data = await res.json()
 
     if (!data.videoMediaMetadata?.durationMillis) {
-      console.log('[Drive API] No video metadata found for file:', data.name, data.mimeType)
+      console.log('[Drive API] No video metadata for:', data.name, data.mimeType)
       return null
     }
 
@@ -78,33 +106,32 @@ export async function getVideoDuration(
       fileName: data.name || undefined,
     }
   } catch (error) {
-    console.error('[Drive API] Failed to fetch video metadata:', error)
+    console.error('[Drive API] Fetch failed:', error)
     return null
   }
 }
 
 /**
  * Validate that a Google Drive video URL points to a video under 4 minutes.
- * Returns { valid: true } or { valid: false, error: string, durationFormatted? }
+ * Returns { valid, error?, durationFormatted?, warning? }
  */
 export async function validateVideoDuration(
   videoUrl: string,
-  accessToken: string
-): Promise<{ valid: boolean; error?: string; durationFormatted?: string }> {
+  accessToken?: string | null
+): Promise<{ valid: boolean; error?: string; durationFormatted?: string; warning?: string }> {
   const fileId = extractDriveFileId(videoUrl)
 
   if (!fileId) {
-    // Can't extract file ID — skip duration check, let other validation handle URL format
-    return { valid: true }
+    return { valid: true, warning: 'Could not extract file ID from URL' }
   }
 
   const metadata = await getVideoDuration(fileId, accessToken)
 
   if (!metadata) {
-    // Can't access video metadata — could be permissions, not a video, etc.
-    // Don't block submission, just warn
-    console.warn('[Drive API] Could not verify video duration for:', videoUrl)
-    return { valid: true }
+    return {
+      valid: true,
+      warning: 'Could not read video metadata. Make sure the file is shared as "Anyone with the link can view".',
+    }
   }
 
   if (metadata.durationMs > MAX_VIDEO_DURATION_MS) {
